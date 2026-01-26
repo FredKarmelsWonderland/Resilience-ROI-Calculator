@@ -36,6 +36,18 @@ if not check_password():
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Faura ROI Calculator", layout="wide")
 
+st.markdown("---")
+st.subheader("🔎 Dig Deeper")
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("💰 Analyze Pricing Strategy"):
+        st.switch_page("pages/1_💰_Premium_Elasticity.py")
+
+with col2:
+    if st.button("🔥 Analyze Risk Sensitivity"):
+        st.switch_page("pages/2_🔥_Risk_Sensitivity.py")
+
 st.title("🔥 Faura Underwriting Profit Calculator")
 st.markdown("### Status Quo vs. Active Mitigation")
 
@@ -82,13 +94,13 @@ expense_ratio = expense_ratio_input / 100
 st.sidebar.markdown("---")
 st.sidebar.header("2. Risk Inputs")
 
-burn_prob_input = st.sidebar.number_input(
-    "Annual Burn Probability (%)", 
+incident_prob_input = st.sidebar.number_input(
+    "Annual incident Probability (%)", 
     value=1.0, 
     step=0.01,
     format="%.2f"
 )
-burn_prob = burn_prob_input / 100
+incident_prob = incident_prob_input / 100
 
 mdr_unmitigated_input = st.sidebar.number_input("MDR (Unmitigated) %", value=80.0, step=0.1)
 mdr_unmitigated = mdr_unmitigated_input / 100
@@ -117,7 +129,7 @@ def calculate_metrics():
     total_uw_expense = total_premium * expense_ratio
 
     # --- STATUS QUO SCENARIO ---
-    sq_losses = n_homes * avg_tiv * burn_prob * mdr_unmitigated
+    sq_losses = n_homes * avg_tiv * incident_prob * mdr_unmitigated
     sq_total_cost = total_uw_expense + sq_losses
     sq_profit = total_premium - sq_total_cost
 
@@ -125,8 +137,8 @@ def calculate_metrics():
     n_converted = n_homes * conversion_rate
     n_unconverted = n_homes * (1 - conversion_rate)
 
-    faura_loss_unconverted = n_unconverted * avg_tiv * burn_prob * mdr_unmitigated
-    faura_loss_converted = n_converted * avg_tiv * burn_prob * mdr_mitigated
+    faura_loss_unconverted = n_unconverted * avg_tiv * incident_prob * mdr_unmitigated
+    faura_loss_converted = n_converted * avg_tiv * incident_prob * mdr_mitigated
     faura_total_losses = faura_loss_unconverted + faura_loss_converted
 
     total_faura_fee = n_homes * faura_cost
@@ -260,7 +272,7 @@ table_data = {
     "Explanation": [
         "Total premium collected from all homeowners.",
         "Fixed operational costs (commissions, overhead).",
-        "Projected claims based on burn probability & MDR.",
+        "Projected claims based on incident probability & MDR.",
         "Cost of Faura platform & outreach ($30/home).",
         "Cost of rewards for verified mitigation actions.",
         "Final underwriting gain or loss."
@@ -312,7 +324,7 @@ with st.expander("ℹ️ Glossary & Formula Logic (Click to Expand)", expanded=T
     st.markdown("""
     ### 1. Variable Definitions
     * **MDR (Mean Damage Ratio):** The average % of the home destroyed if a fire occurs. (e.g., 80% vs 30%).
-    * **Burn Probability:** The annual chance (in %) that a home catches fire.
+    * **incident Probability:** The annual chance (in %) that a home catches fire.
     * **TIV:** Total Insurable Value (Replacement Cost).
     * **Program Cost:** Fixed fee per address ($30).
     * **Conversion Rate:** % of homeowners who take action and improve their MDR.
@@ -327,10 +339,11 @@ with st.expander("ℹ️ Glossary & Formula Logic (Click to Expand)", expanded=T
     st.markdown("The **Expected Losses** variable is where the risk reduction happens. It is calculated as:")
     
     st.latex(r'''
-        \text{Expected Loss} = \underbrace{\text{Home Value (TIV)}}_{\text{\$1M}} \times \underbrace{\text{Burn Probability}}_{\text{Frequency}} \times \underbrace{\textbf{MDR (Severity)}}_{\text{\% Damage}}
+        \text{Expected Loss} = \underbrace{\text{Home Value (TIV)}}_{\text{\$1M}} \times \underbrace{\text{incident Probability}}_{\text{Frequency}} \times \underbrace{\textbf{MDR (Severity)}}_{\text{\% Damage}}
     ''')
     
     st.info("""
     **Why this matters:** * In the **Status Quo**, every home uses the higher `MDR (Unmitigated)`.
     * In the **With Faura** scenario, converted homes switch to the lower `MDR (Mitigated)`, directly reducing the Expected Loss.
     """)
+
