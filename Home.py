@@ -36,18 +36,6 @@ if not check_password():
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Faura ROI Calculator", layout="wide")
 
-st.markdown("---")
-st.subheader("🔎 Dig Deeper")
-col1, col2 = st.columns(2)
-
-with col1:
-    if st.button("💰 Analyze Pricing Strategy"):
-        st.switch_page("pages/1_💰_Premium_Elasticity.py")
-
-with col2:
-    if st.button("🔥 Analyze Risk Sensitivity"):
-        st.switch_page("pages/2_🔥_Risk_Sensitivity.py")
-
 st.title("🔥 Faura Underwriting Profit Calculator")
 st.markdown("### Status Quo vs. Active Mitigation")
 
