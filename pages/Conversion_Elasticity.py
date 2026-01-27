@@ -46,7 +46,7 @@ def currency_input(label, default_value, tooltip=None):
 
 # --- SIDEBAR INPUTS ---
 st.sidebar.header("1. Portfolio Inputs")
-n_homes = st.sidebar.number_input("Number of Homes", value=1000, step=100)
+n_homes = st.sidebar.number_input("Number of Homes", value=100, step=10) # CHANGED TO 100
 avg_premium = currency_input("Avg Premium per Home", 10000)
 avg_tiv = currency_input("Avg TIV per Home", 1000000)
 expense_ratio = st.sidebar.number_input("Expense Ratio (%)", value=15.0, step=0.1, format="%.2f") / 100
@@ -108,10 +108,6 @@ for r in x_range:
     sq, faura, losses, prog_cost = calculate_profit(r)
     net_benefit = faura - sq
     
-    # Calculate simple ROI Multiple (Benefit / Cost)
-    # Note: Cost here includes the Program Fees + Incentives + Revenue Lost from Discounts
-    # This is a bit complex for a tooltip, so we stick to "Net Benefit"
-    
     data.append({
         "Rate": r,
         "Label": f"{int(r*100)}%",
@@ -125,22 +121,18 @@ for r in x_range:
 df = pd.DataFrame(data)
 
 # --- METRICS ROW ---
-col1, col2, col3 = st.columns(3)
+# Reduced to 2 columns to remove the middle box
+col1, col2 = st.columns(2)
 with col1:
     st.metric("Status Quo Profit", f"${df.iloc[0]['SQ_Profit']:,.0f}")
 with col2:
-    idx_20 = 20
-    profit_20 = df.iloc[idx_20]['Faura_Profit']
-    benefit_20 = df.iloc[idx_20]['Net_Benefit']
-    st.metric("Profit at 20% Conv", f"${profit_20:,.0f}", delta=f"+${benefit_20:,.0f}")
-with col3:
     # Breakeven Check
     try:
         be_row = df[df['Net_Benefit'] > 0].iloc[0]
         be_text = f"{be_row['Rate']*100:.0f}%"
     except:
         be_text = "None (Costs > Savings)"
-    st.metric("Profitable At", be_text)
+    st.metric("Profitable At (Breakeven)", be_text)
 
 # --- PLOTLY CHART ---
 fig = go.Figure()
@@ -177,28 +169,7 @@ fig.add_trace(go.Scatter(
     )
 ))
 
-# 3. Annotation
-y_start = df.iloc[-1]['SQ_Profit']
-y_end = df.iloc[-1]['Faura_Profit']
-gain = y_end - y_start
-
-fig.add_annotation(
-    x=0.20,
-    y=y_end,
-    ax=0.20,
-    ay=y_start,
-    xref="x",
-    yref="y",
-    axref="x",
-    ayref="y",
-    text=f"<b>+${gain:,.0f}</b>",
-    showarrow=True,
-    arrowhead=2,
-    arrowsize=1,
-    arrowwidth=2,
-    arrowcolor="green",
-    font=dict(size=14, color="green")
-)
+# Removed the annotation code block here
 
 fig.update_layout(
     title="Net Underwriting Profit vs. Conversion Rate (0% - 20%)",
