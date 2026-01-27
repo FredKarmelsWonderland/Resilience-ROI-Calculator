@@ -30,8 +30,7 @@ st.set_page_config(page_title="Conversion Elasticity", layout="wide")
 
 st.title("📈 Conversion Elasticity: Net Profitability")
 st.markdown("""
-**The "Bottom Line" View:** This chart calculates true **Underwriting Profit**. 
-Crucially, it accounts for the **Revenue Loss** from giving premium discounts and the **Expense** of the program, proving that the **Claims Savings** outweigh both.
+The more homeowners that "convert" and improve their home's resilience, the less expected losses you'll have.
 """)
 
 # --- HELPER FUNCTION ---
