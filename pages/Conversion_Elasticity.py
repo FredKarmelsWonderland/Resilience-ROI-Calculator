@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
 
 # --- PASSWORD PROTECTION ---
@@ -25,136 +26,157 @@ if not check_password():
     st.stop()
 
 # --- PAGE CONFIGURATION ---
-st.set_page_config(page_title="MDR Scenario Modeling", layout="wide")
+st.set_page_config(page_title="Conversion Elasticity", layout="wide")
 
-st.title("📉 Resilience Scenarios: The 'Tale of Two Cities'")
+st.title("📈 Conversion Elasticity: Loss Reduction Analysis")
 st.markdown("""
-**Historical Benchmarking:** Not all fires result in total loss. 
-This tool models your portfolio's performance based on **real-world disaster scenarios**, demonstrating how community resilience (building codes, defensible space) acts as a cap on severity (MDR).
+**The "Claims Slide":** This chart isolates the **Expected Annual Losses** to show exactly how claim volume decreases with every 1% of homeowner adoption.
+It answers: *"If we get 5%, 10%, or 20% of people to engage, how much risk do we remove from the books?"*
 """)
+
+# --- HELPER FUNCTION ---
+def currency_input(label, default_value, tooltip=None):
+    user_input = st.sidebar.text_input(label, value=f"${default_value:,.0f}", help=tooltip)
+    try:
+        clean_val = float(user_input.replace('$', '').replace(',', '').strip())
+    except ValueError:
+        clean_val = default_value
+        st.sidebar.error(f"Please enter a valid number for {label}")
+    return clean_val
 
 # --- SIDEBAR INPUTS ---
 st.sidebar.header("1. Portfolio Inputs")
 n_homes = st.sidebar.number_input("Number of Homes", value=1000, step=100)
-avg_premium = st.sidebar.number_input("Avg Premium ($)", value=10000, step=100)
-avg_tiv = st.sidebar.number_input("Avg TIV ($)", value=1000000, step=100000)
-expense_ratio = st.sidebar.number_input("Expense Ratio (%)", value=15.0, step=0.1, format="%.2f") / 100
+# Note: We don't strictly need Premium/Expenses for "Expected Losses", but good to keep for context if needed later.
+avg_tiv = currency_input("Avg TIV per Home", 1000000)
 
 st.sidebar.markdown("---")
-st.sidebar.header("2. Faura Program")
-faura_cost = st.sidebar.number_input("Faura Cost per Home ($)", value=30)
-conversion_rate = st.sidebar.slider("Faura Conversion Rate (%)", 0, 50, 20) / 100
-incentives = st.sidebar.number_input("Total Incentives ($)", value=600)
-
-# --- SCENARIO DATABASE (The Narrative Engine) ---
-# We define specific fires as "Archetypes" of resilience
-scenarios = {
-    "Camp Fire (Paradise)": {
-        "MDR": 0.90,
-        "Description": "Low Resilience: Older stock, unmitigated WUI.",
-        "Faura_Score_Proxy": "20-30",
-        "Color": "#8B0000" # Dark Red
-    },
-    "Tubbs Fire (Santa Rosa)": {
-        "MDR": 0.65,
-        "Description": "Mixed Resilience: Urban interface with varying mitigation.",
-        "Faura_Score_Proxy": "40-50",
-        "Color": "#FF4500" # Orange Red
-    },
-    "Marshall Fire (Boulder)": {
-        "MDR": 0.45,
-        "Description": "Suburban Density: High spread, but modern suppression access.",
-        "Faura_Score_Proxy": "50-60",
-        "Color": "#FFD700" # Gold
-    },
-    "Silverado Fire (Irvine)": {
-        "MDR": 0.15,
-        "Description": "High Resilience: Master-planned, hardened structures, fuel breaks.",
-        "Faura_Score_Proxy": "80-90",
-        "Color": "#228B22" # Forest Green
-    }
-}
+st.sidebar.header("2. Risk Inputs")
+incident_prob = st.sidebar.number_input("Annual Incident Prob (%)", value=1.0, step=0.01, format="%.2f") / 100
+mdr_unmitigated = st.sidebar.number_input("MDR (Unmitigated) %", value=80.0, step=0.1) / 100
+mdr_mitigated = st.sidebar.number_input("MDR (Mitigated) %", value=30.0, step=0.1) / 100
 
 st.sidebar.markdown("---")
-st.sidebar.header("3. Select Historical Benchmark")
-selected_scenario_name = st.sidebar.selectbox("Simulate Event Severity:", list(scenarios.keys()))
-scenario_data = scenarios[selected_scenario_name]
-current_mdr = scenario_data["MDR"]
+st.sidebar.header("3. Faura Program Inputs")
+st.sidebar.info("ℹ️ Analyzing Conversion from 0% to 20%")
+# We technically don't need costs for a pure "Losses" chart, but keeping them implies we know the "Net" story exists.
 
 # --- CALCULATION LOGIC ---
-# We assume Faura shifts the converted homes "Down the Ladder" 
-# For simplicity in this demo, we assume mitigated homes perform 50% better than the scenario baseline
-# or hit a "Resilience Floor" of 10% MDR.
-mitigated_mdr = max(0.10, current_mdr * 0.5) 
-
-# Incident Probability is fixed for the event simulation (It happened)
-incident_prob = 1.0 # The fire IS happening in this model
-
-def calculate_impact():
-    # FINANCIALS
-    sq_losses = n_homes * avg_tiv * incident_prob * current_mdr
+def calculate_losses(rate):
+    # Unmitigated Baseline
+    sq_losses = n_homes * avg_tiv * incident_prob * mdr_unmitigated
     
-    # With Faura
-    n_converted = n_homes * conversion_rate
-    n_unconverted = n_homes * (1 - conversion_rate)
+    # With Faura Conversion
+    n_converted = n_homes * rate
+    n_unconverted = n_homes * (1 - rate)
     
-    # Unconverted homes suffer the full Scenario MDR
-    loss_unconverted = n_unconverted * avg_tiv * incident_prob * current_mdr
-    # Converted homes suffer the Improved MDR
-    loss_converted = n_converted * avg_tiv * incident_prob * mitigated_mdr
+    loss_unconverted = n_unconverted * avg_tiv * incident_prob * mdr_unmitigated
+    loss_converted = n_converted * avg_tiv * incident_prob * mdr_mitigated
     
     faura_losses = loss_unconverted + loss_converted
-    program_cost = (n_homes * faura_cost) + (n_converted * incentives)
     
-    saved_losses = sq_losses - faura_losses
-    net_benefit = saved_losses - program_cost
-    
-    return sq_losses, faura_losses, saved_losses, net_benefit, program_cost
+    return sq_losses, faura_losses
 
-sq_loss, faura_loss, saved, net, cost = calculate_impact()
+# --- GENERATE DATA (0% to 20% in 1% increments) ---
+x_range = np.linspace(0, 0.20, 21) # 0.00, 0.01, ... 0.20
+data = []
 
-# --- DASHBOARD HEADER ---
-st.info(f"""
-**Benchmark: {selected_scenario_name}** 📝 *{scenario_data['Description']}* 🔹 **Implied Resilience Score:** {scenario_data['Faura_Score_Proxy']} | 🔹 **Base MDR:** {current_mdr*100:.0f}%
-""")
+for r in x_range:
+    sq, faura = calculate_losses(r)
+    data.append({
+        "Rate": r,
+        "Label": f"{int(r*100)}%",
+        "SQ_Losses": sq,
+        "Faura_Losses": faura,
+        "Saved": sq - faura
+    })
 
-# --- METRICS ---
+df = pd.DataFrame(data)
+
+# --- METRICS ROW ---
 col1, col2, col3 = st.columns(3)
 with col1:
-    st.metric("Total Status Quo Loss", f"${sq_loss:,.0f}")
+    # Baseline Losses
+    st.metric("Baseline Annual Losses (0% Conv)", f"${df.iloc[0]['SQ_Losses']:,.0f}")
 with col2:
-    st.metric("Loss Avoided (Claims Saved)", f"${saved:,.0f}", delta="Money Saved")
+    # Savings at 10%
+    idx_10 = 10
+    saved_10 = df.iloc[idx_10]['Saved']
+    st.metric("Losses Prevented at 10% Conv", f"${saved_10:,.0f}", delta="Risk Removed")
 with col3:
-    st.metric("Net ROI (after Program Costs)", f"${net:,.0f}")
+    # Savings at 20%
+    idx_20 = 20
+    saved_20 = df.iloc[idx_20]['Saved']
+    st.metric("Losses Prevented at 20% Conv", f"${saved_20:,.0f}", delta="Risk Removed")
 
-# --- CHARTING ---
+# --- PLOTLY LINE CHART ---
 fig = go.Figure()
 
-# 1. Comparison Bar Chart
-fig.add_trace(go.Bar(
-    x=["Status Quo Loss", "Loss with Faura"],
-    y=[sq_loss, faura_loss],
-    marker_color=[scenario_data['Color'], '#4B604D'],
-    text=[f"${sq_loss:,.0f}", f"${faura_loss:,.0f}"],
-    textposition='auto',
-    textfont=dict(size=18, color="white")
+# 1. Status Quo Line (Flat Dashed)
+fig.add_trace(go.Scatter(
+    x=df['Rate'],
+    y=df['SQ_Losses'],
+    mode='lines',
+    name='Status Quo Expected Losses',
+    line=dict(color='#EF553B', width=3, dash='dash')
 ))
 
+# 2. Faura Losses Line (Downward Slope)
+fig.add_trace(go.Scatter(
+    x=df['Rate'],
+    y=df['Faura_Losses'],
+    mode='lines+markers', # Add markers to show the 1% ticks clearly
+    name='Expected Losses with Faura',
+    line=dict(color='#4B604D', width=4),
+    marker=dict(size=8)
+))
+
+# 3. Add Annotation for the Drop
+# Show the arrow at the 20% mark
+y_start = df.iloc[-1]['SQ_Losses']
+y_end = df.iloc[-1]['Faura_Losses']
+savings = y_start - y_end
+
+fig.add_annotation(
+    x=0.20,
+    y=y_end,
+    ax=0.20,
+    ay=y_start,
+    xref="x",
+    yref="y",
+    axref="x",
+    ayref="y",
+    text=f"<b>-${savings:,.0f}</b>",
+    showarrow=True,
+    arrowhead=2,
+    arrowsize=1,
+    arrowwidth=2,
+    arrowcolor="green",
+    font=dict(size=14, color="green")
+)
+
 fig.update_layout(
-    title=f"Impact of Resilience on {selected_scenario_name} Scenario",
-    yaxis_title="Total Aggregate Loss ($)",
+    title="Expected Portfolio Losses vs. Conversion Rate (0% - 20%)",
+    xaxis_title="Conversion Rate (%)",
+    yaxis_title="Annual Expected Losses ($)",
+    xaxis=dict(
+        tickmode='array',
+        tickvals=x_range,
+        ticktext=[f"{int(x*100)}%" for x in x_range],
+        range=[-0.005, 0.205] # Add padding
+    ),
+    hovermode="x unified",
     template="plotly_white",
-    height=500
+    height=600,
+    legend=dict(yanchor="bottom", y=0.01, xanchor="left", x=0.01)
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
-# --- NARRATIVE SECTION ---
-st.markdown("### 🧠 The Resilience Thesis")
-st.markdown(f"""
-This model answers the question: ***"What if we had {conversion_rate*100:.0f}% adoption during the {selected_scenario_name}?"***
-
-1.  **The "Camp Fire" Standard (Status Quo):** Without verified mitigation, homes are assumed to be highly fragile, leading to the **{current_mdr*100:.0f}% MDR** seen in the status quo bar.
-2.  **The "Silverado" Effect (Mitigation):** By validating defensible space and structural hardening (Faura's Core Product), we effectively shift the converted portion of your portfolio toward the resilience profile of Irvine, CA.
-3.  **The Result:** Even in a catastrophic event scenario like **{selected_scenario_name}**, the {int(n_homes*conversion_rate)} converted homes resist total destruction, saving **${saved:,.0f}** in claims.
+# --- FOOTER ---
+loss_per_1_percent = df.iloc[1]['Saved'] # Savings at 1%
+st.info(f"""
+**The Power of 1%:** For every **1%** of the portfolio that converts, you remove **${loss_per_1_percent:,.0f}** in expected annual claims from the books.
+* At **5%** conversion, that sums to **${df.iloc[5]['Saved']:,.0f}**.
+* At **15%** conversion, that sums to **${df.iloc[15]['Saved']:,.0f}**.
 """)
