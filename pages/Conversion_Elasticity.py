@@ -132,7 +132,7 @@ with col2:
         be_text = f"{be_row['Rate']*100:.0f}%"
     except:
         be_text = "None (Costs > Savings)"
-    st.metric("Profitable At (Breakeven)", be_text)
+    st.metric("Conversion required for Profitability", be_text)
 
 # --- PLOTLY CHART ---
 fig = go.Figure()
