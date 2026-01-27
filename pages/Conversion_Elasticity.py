@@ -28,10 +28,10 @@ if not check_password():
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Conversion Elasticity", layout="wide")
 
-st.title("📈 Conversion Elasticity: Loss Reduction Analysis")
+st.title("📈 Conversion Elasticity: Interactive Loss Analysis")
 st.markdown("""
-**The "Claims Slide":** This chart isolates the **Expected Annual Losses** to show exactly how claim volume decreases with every 1% of homeowner adoption.
-It answers: *"If we get 5%, 10%, or 20% of people to engage, how much risk do we remove from the books?"*
+**The "Claims Slide":** Hover over any point on the green line to see the exact financial breakdown for that conversion rate.
+It answers: *"If we get X% participation, what is our Net ROI?"*
 """)
 
 # --- HELPER FUNCTION ---
@@ -46,9 +46,10 @@ def currency_input(label, default_value, tooltip=None):
 
 # --- SIDEBAR INPUTS ---
 st.sidebar.header("1. Portfolio Inputs")
-n_homes = st.sidebar.number_input("Number of Homes", value=1000, step=100)
-# Note: We don't strictly need Premium/Expenses for "Expected Losses", but good to keep for context if needed later.
+n_homes = st.sidebar.number_input("Number of Homes", value=100, step=100)
+avg_premium = currency_input("Avg Premium per Home", 10000)
 avg_tiv = currency_input("Avg TIV per Home", 1000000)
+expense_ratio = st.sidebar.number_input("Expense Ratio (%)", value=15.0, step=0.1, format="%.2f") / 100
 
 st.sidebar.markdown("---")
 st.sidebar.header("2. Risk Inputs")
@@ -58,12 +59,14 @@ mdr_mitigated = st.sidebar.number_input("MDR (Mitigated) %", value=30.0, step=0.
 
 st.sidebar.markdown("---")
 st.sidebar.header("3. Faura Program Inputs")
+faura_cost = currency_input("Faura Cost per Home", 30)
 st.sidebar.info("ℹ️ Analyzing Conversion from 0% to 20%")
-# We technically don't need costs for a pure "Losses" chart, but keeping them implies we know the "Net" story exists.
+gift_card = currency_input("Gift Card Incentive", 300)
+premium_discount = currency_input("Premium Discount", 300)
 
 # --- CALCULATION LOGIC ---
-def calculate_losses(rate):
-    # Unmitigated Baseline
+def calculate_scenario(rate):
+    # Unmitigated Baseline (Status Quo)
     sq_losses = n_homes * avg_tiv * incident_prob * mdr_unmitigated
     
     # With Faura Conversion
@@ -75,20 +78,32 @@ def calculate_losses(rate):
     
     faura_losses = loss_unconverted + loss_converted
     
-    return sq_losses, faura_losses
+    # Calculate Costs (for ROI metrics)
+    program_fixed_cost = n_homes * faura_cost
+    incentive_variable_cost = n_converted * (gift_card + premium_discount)
+    total_program_cost = program_fixed_cost + incentive_variable_cost
+    
+    return sq_losses, faura_losses, total_program_cost
 
-# --- GENERATE DATA (0% to 20% in 1% increments) ---
+# --- GENERATE DATA ---
 x_range = np.linspace(0, 0.20, 21) # 0.00, 0.01, ... 0.20
 data = []
 
 for r in x_range:
-    sq, faura = calculate_losses(r)
+    sq, faura, cost = calculate_scenario(r)
+    saved = sq - faura
+    net_roi = saved - cost
+    roi_multiple = saved / cost if cost > 0 else 0
+    
     data.append({
         "Rate": r,
-        "Label": f"{int(r*100)}%",
+        "Rate_Pct": f"{int(r*100)}%",
         "SQ_Losses": sq,
         "Faura_Losses": faura,
-        "Saved": sq - faura
+        "Saved": saved,
+        "Program_Cost": cost,
+        "Net_ROI": net_roi,
+        "ROI_Mult": roi_multiple
     })
 
 df = pd.DataFrame(data)
@@ -96,43 +111,54 @@ df = pd.DataFrame(data)
 # --- METRICS ROW ---
 col1, col2, col3 = st.columns(3)
 with col1:
-    # Baseline Losses
     st.metric("Baseline Annual Losses (0% Conv)", f"${df.iloc[0]['SQ_Losses']:,.0f}")
 with col2:
-    # Savings at 10%
-    idx_10 = 10
-    saved_10 = df.iloc[idx_10]['Saved']
-    st.metric("Losses Prevented at 10% Conv", f"${saved_10:,.0f}", delta="Risk Removed")
-with col3:
-    # Savings at 20%
     idx_20 = 20
     saved_20 = df.iloc[idx_20]['Saved']
-    st.metric("Losses Prevented at 20% Conv", f"${saved_20:,.0f}", delta="Risk Removed")
+    st.metric("Claims Prevented at 20% Conv", f"${saved_20:,.0f}", delta="Risk Removed")
+with col3:
+    net_20 = df.iloc[idx_20]['Net_ROI']
+    roi_mult_20 = df.iloc[idx_20]['ROI_Mult']
+    st.metric(f"Net Program ROI ({roi_mult_20:.1f}x)", f"${net_20:,.0f}", delta="Net Profit")
 
-# --- PLOTLY LINE CHART ---
+# --- PLOTLY LINE CHART WITH CUSTOM HOVER ---
 fig = go.Figure()
 
-# 1. Status Quo Line (Flat Dashed)
+# 1. Status Quo Line
 fig.add_trace(go.Scatter(
     x=df['Rate'],
     y=df['SQ_Losses'],
     mode='lines',
-    name='Status Quo Expected Losses',
-    line=dict(color='#EF553B', width=3, dash='dash')
+    name='Status Quo',
+    line=dict(color='#EF553B', width=3, dash='dash'),
+    hovertemplate='<b>Status Quo</b><br>Losses: %{y:$,.0f}<extra></extra>'
 ))
 
-# 2. Faura Losses Line (Downward Slope)
+# 2. Faura Losses Line (Interactive)
+# We stack the extra data into a 'customdata' array so the hover tooltip can read it
+custom_data = np.stack((df['Saved'], df['Program_Cost'], df['Net_ROI'], df['ROI_Mult']), axis=-1)
+
 fig.add_trace(go.Scatter(
     x=df['Rate'],
     y=df['Faura_Losses'],
-    mode='lines+markers', # Add markers to show the 1% ticks clearly
-    name='Expected Losses with Faura',
+    mode='lines+markers',
+    name='With Faura',
     line=dict(color='#4B604D', width=4),
-    marker=dict(size=8)
+    marker=dict(size=8),
+    customdata=custom_data,
+    hovertemplate=(
+        "<b>Conversion: %{x:.0%}</b><br>" +
+        "Expected Losses: %{y:$,.0f}<br>" +
+        "-------------------<br>" +
+        "📉 Claims Saved: %{customdata[0]:$,.0f}<br>" +
+        "💸 Program Cost: %{customdata[1]:$,.0f}<br>" +
+        "💰 <b>Net ROI: %{customdata[2]:$,.0f}</b><br>" +
+        "🚀 Multiplier: %{customdata[3]:.1f}x" +
+        "<extra></extra>" # Hides the secondary box on the side
+    )
 ))
 
-# 3. Add Annotation for the Drop
-# Show the arrow at the 20% mark
+# 3. Add Annotation for the Drop at 20%
 y_start = df.iloc[-1]['SQ_Losses']
 y_end = df.iloc[-1]['Faura_Losses']
 savings = y_start - y_end
@@ -163,9 +189,9 @@ fig.update_layout(
         tickmode='array',
         tickvals=x_range,
         ticktext=[f"{int(x*100)}%" for x in x_range],
-        range=[-0.005, 0.205] # Add padding
+        range=[-0.005, 0.205]
     ),
-    hovermode="x unified",
+    hovermode="closest", # 'closest' works better for specific point tooltips than 'unified'
     template="plotly_white",
     height=600,
     legend=dict(yanchor="bottom", y=0.01, xanchor="left", x=0.01)
@@ -174,9 +200,7 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # --- FOOTER ---
-loss_per_1_percent = df.iloc[1]['Saved'] # Savings at 1%
-st.info(f"""
-**The Power of 1%:** For every **1%** of the portfolio that converts, you remove **${loss_per_1_percent:,.0f}** in expected annual claims from the books.
-* At **5%** conversion, that sums to **${df.iloc[5]['Saved']:,.0f}**.
-* At **15%** conversion, that sums to **${df.iloc[15]['Saved']:,.0f}**.
+st.info("""
+**How to use:** Hover your mouse over any green dot on the chart. 
+A detailed popup will appear showing the **Savings**, **Cost**, and **Net ROI** for that specific participation rate.
 """)
