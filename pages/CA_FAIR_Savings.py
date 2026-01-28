@@ -1,5 +1,4 @@
 import streamlit as st
-import plotly.graph_objects as go
 
 st.set_page_config(page_title="FAIR Plan Discount Calculator", layout="wide")
 
@@ -9,7 +8,7 @@ st.markdown("""
 It calculates the itemized premium reduction available to the homeowner for verified mitigation actions.
 """)
 
-# --- SIDEBAR: POLICY DETAILS ---
+# --- SIDEBAR: POLICY INPUTS ---
 st.sidebar.header("Policy Details")
 base_premium = st.sidebar.number_input("Current Annual FAIR Plan Premium ($)", value=4500, step=100)
 wildfire_load = st.sidebar.slider("Wildfire Portion of Premium (%)", 50, 100, 85) / 100
@@ -17,13 +16,29 @@ risk_premium = base_premium * wildfire_load
 
 st.sidebar.info(f"📍 **Addressable Wildfire Premium:** ${risk_premium:,.0f}")
 
-# --- MAIN COLUMNS ---
+# --- CHECKLIST STATE ---
+# We define the layout top-down, but we need to capture the inputs first to calculate the metrics.
+# To keep the UI clean (Metrics at Top), we use a container strategy or just render columns below.
+# Streamlit renders sequentially, so to put metrics at the top that depend on checkboxes below, 
+# we usually render the inputs first. However, to meet your layout request ("Widgets above checklist"),
+# we will render the metrics container *first*, but we need to fetch the checkbox values.
+# The standard way in Streamlit is to put checkboxes in columns below, and they auto-update the metrics at the top on rerun.
+
+# --- 1. DEFINE CHECKBOXES (But render them lower down) ---
+# We create placeholders or just use the logic that Streamlit re-runs the whole script on interaction.
+
+# --- 2. LAYOUT: METRICS ROW (Top) ---
+metrics_container = st.container()
+
+st.markdown("---")
+
+# --- 3. LAYOUT: CHECKLIST COLUMNS (Bottom) ---
 col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("1. Community & Surroundings")
     
-    # Community Discount (The Big One)
+    # Community Discount
     st.markdown("**Community Level**")
     is_firewise = st.checkbox("📍 Located in Firewise USA Site", help="Automatic ~10% discount")
     
@@ -62,11 +77,10 @@ discount_accumulated += (surroundings_count * 0.01)
 # 3. Structure Hardening (approx 2% each, max 10%)
 discount_accumulated += (structure_count * 0.02)
 
-# 4. Completion Bonus (approx 2-5% bonus if ALL 10 property items are done)
+# 4. Completion Bonus (approx 3% bonus if ALL 10 property items are done)
 is_complete = (surroundings_count == 5) and (structure_count == 5)
 if is_complete:
     discount_accumulated += 0.03 # Bonus kicker
-    st.balloons() # Visual reward for "100% Verified"
 
 # Cap total discount at regulatory max (usually around 25-29%)
 final_discount_pct = min(discount_accumulated, 0.29)
@@ -75,66 +89,28 @@ final_discount_pct = min(discount_accumulated, 0.29)
 annual_savings = risk_premium * final_discount_pct
 new_premium = base_premium - annual_savings
 
-# --- RESULTS DASHBOARD ---
-st.markdown("---")
-
-# Metrics
-m1, m2, m3 = st.columns(3)
-with m1:
-    st.metric("Current Annual Premium", f"${base_premium:,.0f}", help="The base premium before mitigation")
-with m2:
-    st.metric("New Annual Premium", f"${new_premium:,.0f}", delta=f"-{final_discount_pct*100:.1f}% Reduction", delta_color="normal")
-with m3:
-    st.metric("Total Annual Savings", f"${annual_savings:,.0f}", delta="Money Back")
-
-# Progress Bar for "Completion Bonus"
-if not is_complete:
-    items_done = surroundings_count + structure_count
-    st.warning(f"⚠️ **Unlock the Bonus:** You have completed {items_done}/10 property items. Finish all 10 to unlock the extra 3% Completion Discount.")
-    st.progress(items_done / 10)
-else:
-    st.success("✅ **MAXIMUM SAVINGS UNLOCKED:** You have qualified for the Completion Bonus.")
-
-# Visualization
-fig = go.Figure()
-
-# Stacked Bar: Premium Cost vs Savings
-fig.add_trace(go.Bar(
-    y=['Total Cost'],
-    x=[new_premium],
-    name='New Premium',
-    orientation='h',
-    marker_color='#4B604D',
-    text=f"${new_premium:,.0f}",
-    textposition='auto'
-))
-
-fig.add_trace(go.Bar(
-    y=['Total Cost'],
-    x=[annual_savings],
-    name='Savings',
-    orientation='h',
-    marker_color='#EF553B',
-    text=f"SAVINGS: ${annual_savings:,.0f}",
-    textposition='auto'
-))
-
-fig.update_layout(
-    title="Premium Breakdown", 
-    barmode='stack', 
-    height=250,
-    xaxis_title="Dollars ($)",
-    yaxis=dict(showticklabels=False)
-)
-
-st.plotly_chart(fig, use_container_width=True)
+# --- RENDER METRICS (Populate the top container) ---
+with metrics_container:
+    m1, m2, m3 = st.columns(3)
+    with m1:
+        st.metric("Current Annual Premium", f"${base_premium:,.0f}", help="The base premium before mitigation")
+    with m2:
+        st.metric("New Annual Premium", f"${new_premium:,.0f}", delta=f"-{final_discount_pct*100:.1f}% Reduction", delta_color="normal")
+    with m3:
+        st.metric("Total Annual Savings", f"${annual_savings:,.0f}", delta="Money Back")
+    
+    # Progress/Bonus Notification
+    if is_complete:
+        st.success("✅ **MAXIMUM SAVINGS UNLOCKED:** You have qualified for the Completion Bonus.")
+    elif (surroundings_count + structure_count) > 0:
+        items_done = surroundings_count + structure_count
+        st.progress(items_done / 10)
+        st.caption(f"Complete {10 - items_done} more items to unlock the Completion Bonus.")
 
 # --- CITATION FOOTER ---
 st.markdown("---")
 st.caption("""
-**Source Methodology:** Discount estimates are based on the **California Department of Insurance Regulation 2644.9** ("Safer from Wildfires"), 
-which mandates insurers offer premium reductions for specific mitigation actions. 
-The FAIR Plan's specific discount weights (approx. 10% for structure, 5% for surroundings, 5-10% for community) 
-are derived from their 2023-2024 Rate Filings.
-[Read the Official Regulation](https://www.insurance.ca.gov/01-consumers/105-type/95-guides/03-res/Safer-from-Wildfires.cfm)
+**Source Methodology:** Discount estimates are based on the **California FAIR Plan Discount Guide (November 2025)**.
+The specific weighting (approx. 10% for structure, 5% for surroundings, 5-10% for community) is derived from the "Discounts for Dwelling Fire & Commercial Policies" filing.
+[View Official FAIR Plan Discount Document](https://www.cfpnet.com/wp-content/uploads/2025/11/Discounts-for-Dwelling-Fire-Commercial-Policies-2025.11.15.pdf)
 """)
