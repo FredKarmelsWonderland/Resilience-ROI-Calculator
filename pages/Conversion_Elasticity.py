@@ -49,9 +49,6 @@ st.sidebar.header("1. Portfolio Inputs")
 n_homes = st.sidebar.number_input("Number of Homes", value=100, step=10)
 avg_tiv = currency_input("Avg TIV per Home", 1000000)
 
-# Note: We don't need Premium for a "Losses" view, but we keep the Expense Ratio box
-# just in case you want to pivot back later, or we can hide it. Leaving it out for clarity here.
-
 st.sidebar.markdown("---")
 st.sidebar.header("2. Risk Inputs")
 incident_prob = st.sidebar.number_input("Annual Incident Prob (%)", value=1.0, step=0.01, format="%.2f") / 100
@@ -80,8 +77,6 @@ def calculate_scenario(rate):
     faura_losses = loss_unconverted + loss_converted
     
     # Calculate Costs
-    # Note: We include Premium Discount here as a "Cost" because it is lost revenue, 
-    # essentially a cost to the carrier's bottom line.
     program_fixed_cost = n_homes * faura_cost
     incentive_variable_cost = n_converted * (gift_card + premium_discount)
     total_program_cost = program_fixed_cost + incentive_variable_cost
@@ -95,10 +90,17 @@ data = []
 for r in x_range:
     sq, faura, cost = calculate_scenario(r)
     claims_saved = sq - faura
-    net_benefit = claims_saved - cost # The "Delta"
+    net_benefit = claims_saved - cost # The "Delta" (Profit/Loss)
     
-    # ROI Multiplier
-    roi_mult = claims_saved / cost if cost > 0 else 0
+    # --- ROI LOGIC FIX ---
+    if cost > 0:
+        # Standard ROI Formula: (Net Profit / Cost)
+        # Result: 
+        #   If Savings = 20k, Cost = 10k -> Net = 10k -> ROI = 1.0 (100% return)
+        #   If Savings = 5k,  Cost = 10k -> Net = -5k -> ROI = -0.5 (-50% return)
+        roi_ratio = net_benefit / cost
+    else:
+        roi_ratio = 0
     
     data.append({
         "Rate": r,
@@ -108,7 +110,7 @@ for r in x_range:
         "Claims_Saved": claims_saved,
         "Program_Cost": cost,
         "Net_Benefit": net_benefit,
-        "ROI_Mult": roi_mult
+        "ROI_Ratio": roi_ratio
     })
 
 df = pd.DataFrame(data)
@@ -116,7 +118,7 @@ df = pd.DataFrame(data)
 # --- METRICS ROW ---
 col1, col2, col3 = st.columns(3)
 
-# We grab the stats at the 20% mark (the end of the chart)
+# We grab the stats at the 20% mark
 idx_20 = 20
 stats_20 = df.iloc[idx_20]
 
@@ -131,19 +133,40 @@ with col2:
         "Total Program Cost (at 20%)", 
         f"${stats_20['Program_Cost']:,.0f}", 
         delta="Fees + Incentives",
-        delta_color="inverse" # Make red mean "Cost"
+        delta_color="inverse"
     )
+
+# --- ROI DISPLAY LOGIC ---
+net_val = stats_20['Net_Benefit']
+roi_val = stats_20['ROI_Ratio']
+
+# If Net Benefit is negative, we format as a Loss Percentage (Red)
+# If Positive, we format as a Multiplier (Green)
+if net_val >= 0:
+    # Example: 1.5x Return (Standard Multiplier)
+    # We add 1 to ratio because business people often think "2x" means "I doubled my money" (Revenue/Cost)
+    # whereas standard ROI is (Profit/Cost). 
+    # Let's use Revenue / Cost for the multiplier display to be safe.
+    rev_cost_ratio = stats_20['Claims_Saved'] / stats_20['Program_Cost'] if stats_20['Program_Cost'] > 0 else 0
+    display_delta = f"{rev_cost_ratio:.1f}x ROI Multiplier"
+    delta_color = "normal" # Green
+else:
+    # Example: -33% ROI (Loss)
+    display_delta = f"{roi_val:.0%} Negative ROI"
+    delta_color = "inverse" # Red
+
 with col3:
     st.metric(
         "Net Project ROI (Delta)", 
-        f"${stats_20['Net_Benefit']:,.0f}", 
-        delta=f"{stats_20['ROI_Mult']:.1f}x Multiplier"
+        f"${net_val:,.0f}", 
+        delta=display_delta,
+        delta_color=delta_color
     )
 
 # --- PLOTLY CHART ---
 fig = go.Figure()
 
-# 1. Status Quo Line (Flat Dashed)
+# 1. Status Quo Line
 fig.add_trace(go.Scatter(
     x=df['Rate'],
     y=df['SQ_Losses'],
@@ -153,7 +176,7 @@ fig.add_trace(go.Scatter(
     hovertemplate='<b>Status Quo</b><br>Expected Losses: %{y:$,.0f}<extra></extra>'
 ))
 
-# 2. Faura Losses Line (Interactive)
+# 2. Faura Losses Line
 custom_data = np.stack((df['Claims_Saved'], df['Program_Cost'], df['Net_Benefit']), axis=-1)
 
 fig.add_trace(go.Scatter(
@@ -198,5 +221,7 @@ st.info("""
 **Interpreting the Delta:**
 * **Column 1 (Savings):** The pure reduction in fire claims risk.
 * **Column 2 (Cost):** The total bill (Platform Fees + Gift Cards + Premium Discounts).
-* **Column 3 (Delta):** The money you keep. As long as this is **Positive**, the program is profitable.
+* **Column 3 (Delta):** The money you keep. 
+    * **Green Multiplier:** You are profitable. (e.g., 2.0x means you get \$2 back for every \$1 spent).
+    * **Red Percentage:** You are losing money on the program. (e.g., -33% means you lose 33 cents on the dollar).
 """)
