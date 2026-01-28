@@ -162,7 +162,7 @@ st.plotly_chart(fig, use_container_width=True)
 # Data Table
 st.subheader("Financial Breakdown")
 table_data = {
-    "Line Item": ["Gross Written Premium", "(-) Underwriting Expenses", "(-) Expected Fire Losses", "(-) Faura Program Fees", "(-) Incentives (Cards + Discounts)", "= NET PROFIT"],
+    "Line Item": ["Gross Written Premium", "(-) Underwriting Expenses", "(-) Expected Incident Losses", "(-) Faura Program Fees", "(-) Incentives (Cards + Discounts)", "= NET PROFIT"],
     "Status Quo": [metrics['total_premium'], -metrics['sq_expenses'], -metrics['sq_losses'], 0, 0, metrics['sq_profit']],
     "With Faura": [metrics['total_premium'], -metrics['faura_expenses'], -metrics['faura_losses'], -metrics['faura_program_cost'], -metrics['faura_incentives'], metrics['faura_profit']]
 }
@@ -183,8 +183,8 @@ st.markdown("---")
 with st.expander("ℹ️ Glossary & Formula Logic (Click to Expand)", expanded=False):
     st.markdown("""
     ### 1. Variable Definitions
-    * **MDR (Mean Damage Ratio):** The average % of the home destroyed if a fire occurs.
-    * **Incident Probability:** The annual chance (in %) that a home catches fire.
+    * **MDR (Mean Damage Ratio):** The average % of the home destroyed if a Incident occurs.
+    * **Incident Probability:** The annual chance (in %) that a home catches Incident.
     * **TIV:** Total Insurable Value (Replacement Cost).
     """)
     st.latex(r'''
