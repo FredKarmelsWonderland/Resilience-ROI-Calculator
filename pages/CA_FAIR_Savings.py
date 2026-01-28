@@ -1,5 +1,27 @@
 import streamlit as st
 
+# --- PASSWORD PROTECTION ---
+def check_password():
+    """Returns `True` if the user had the correct password."""
+    def password_entered():
+        if st.session_state["password"] == "Faura2026":
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        st.session_state["password_correct"] = False
+
+    if not st.session_state["password_correct"]:
+        st.text_input("Please enter the Sales Access Password", type="password", on_change=password_entered, key="password")
+        return False
+    else:
+        return True
+
+if not check_password():
+    st.stop()
+
 st.set_page_config(page_title="FAIR Plan Discount Calculator", layout="wide")
 
 st.title("🏛️ California FAIR Plan: Discount Validator")
