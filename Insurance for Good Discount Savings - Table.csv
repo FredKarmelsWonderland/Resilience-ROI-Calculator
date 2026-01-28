@@ -1,0 +1,16 @@
+Carrier,Discount_Basis,Logic_Type,Firewise USA,Fire Risk Community,Debris Removal,Zone 0 (5ft),Zone 0 (Improv),30ft Clearance,Section 4291,Class A Roof,Enclosed Eaves,Fire Res Vents,Multi-Pane Windows,6-inch Vert Space,IBHS Std,IBHS Plus,Merc_Mit_Std,Merc_Mit_Plus,Fire_Resist_Const,Shelter_In_Place,Def_Space_Adj,Non_Comb_Ext,Suppression_Sys,Func_Shutters
+State Farm,All Peril,Standard,2,0.1,0.1,1,0.5,0.1,0.1,2,0.1,0.1,0.1,0.1,2,3.8,0,0,0,0,0,0,0,0
+Farmers,Wildfire Peril,Farmers_Fireline,0.8,0.2,0.2,0.2,0.2,0.5,0.8,0.8,0.5,0.5,0.2,0.2,0,0,0,0,0,0,0,0,0,0
+Mercury,CAT Fire Peril,Mercury_Complex,5,0.1,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,10,29,25,33,50,0,0,0,0,0
+CSAA,All Peril,Standard,5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,1,2,0,0,0,0,0,0,0,0
+Auto Club SoCal,Brushfire Peril,ACSC_Count,5,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+USAA,Wildfire Peril,Standard,20,0.5,1.5,1.5,1,1.5,1.5,1,0.5,0.5,0.5,0.5,0,0,0,0,0,0,0,0,0,0
+Allstate,Wildfire Peril,Allstate_Zesty,0.8,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0.2,0,0,0,0,0,0,0,0,0,0
+Safeco,Wildfire Premium,Standard,5,1,1,1,1,1,1,1,1,1,1,1,10,15,0,0,0,0,0,0,0,0
+Travelers,Wildfire Peril,Travelers_Comp,1,1,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,3,5,0,0,0,0,0,0,0,0
+Sutton National,Wildfire Premium,Sutton_Comp,1.5,1.5,0.5,0.5,0.5,0.5,3,5,0.5,0.5,0.5,0.5,0,0,0,0,0,0,0,0,0,
+Nationwide,Fire Peril,Standard,1.5,0.5,0.5,0.5,0.5,0.5,3,5,0.5,0.5,0.5,0.5,17.5,26,0,0,0,0,0,0,0,0
+Liberty Mutual,Wildfire Premium,Standard,5,1,1,1,1,1,1,1,1,1,1,1,10,15,0,0,0,0,0,0,0,0
+Homesite,CAT Fire Premium,Standard,1.5,1.5,0.5,0.5,0.5,0.5,3,5,0.5,0.5,0.5,0.5,0,0,0,0,0,0,0,0,0,0
+Federal (Chubb),Wildfire Premium,Chubb_Complex,1,2,1,1,1,2.5,5,5,1,2,5,1,0,0,0,0,15,5,10,5,10,0
+Pacific Specialty,Wildfire Peril,PacSpec_Zone,3,3,1,0.5,0.5,2,0,2,0.25,0.25,0.25,2,0,0,0,0,0,0,0,0,0,0.25
