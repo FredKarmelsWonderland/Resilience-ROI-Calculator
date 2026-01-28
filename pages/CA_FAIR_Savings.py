@@ -4,35 +4,31 @@ st.set_page_config(page_title="FAIR Plan Discount Calculator", layout="wide")
 
 st.title("🏛️ California FAIR Plan: Discount Validator")
 st.markdown("""
-**The "TurboTax" for Wildfire Compliance:** This tool digitizes the **California 'Safer from Wildfires'** checklist. 
-It calculates the itemized premium reduction available to the homeowner for verified mitigation actions.
+**California 'Safer from Wildfires' Compliance Tool:** This calculator estimates the itemized premium reduction available to homeowners for verified mitigation actions.
+""")
+
+st.warning("""
+**Important:** You must inform your insurance agent or broker to request these discounts. 
+Documentation (photos, receipts, or inspection reports) is required to verify improvements. 
+**Note:** Discounts apply *only* to the Wildfire portion of your premium, not the total bill.
 """)
 
 # --- SIDEBAR: POLICY INPUTS ---
 st.sidebar.header("Policy Details")
-base_premium = st.sidebar.number_input("Current Annual FAIR Plan Premium ($)", value=4500, step=100)
-wildfire_load = st.sidebar.slider("Wildfire Portion of Premium (%)", 50, 100, 85) / 100
-risk_premium = base_premium * wildfire_load
+base_premium = st.sidebar.number_input("Total Annual FAIR Plan Premium ($)", value=4500, step=100)
+wildfire_load = st.sidebar.slider("Wildfire Portion of Premium (%)", 50, 100, 85, help="Since FAIR Plan is primarily for fire, this is usually high (85-95%).") / 100
 
-st.sidebar.info(f"📍 **Addressable Wildfire Premium:** ${risk_premium:,.0f}")
+# Calculate the split
+wildfire_portion_initial = base_premium * wildfire_load
+other_portion = base_premium - wildfire_portion_initial
 
-# --- CHECKLIST STATE ---
-# We define the layout top-down, but we need to capture the inputs first to calculate the metrics.
-# To keep the UI clean (Metrics at Top), we use a container strategy or just render columns below.
-# Streamlit renders sequentially, so to put metrics at the top that depend on checkboxes below, 
-# we usually render the inputs first. However, to meet your layout request ("Widgets above checklist"),
-# we will render the metrics container *first*, but we need to fetch the checkbox values.
-# The standard way in Streamlit is to put checkboxes in columns below, and they auto-update the metrics at the top on rerun.
-
-# --- 1. DEFINE CHECKBOXES (But render them lower down) ---
-# We create placeholders or just use the logic that Streamlit re-runs the whole script on interaction.
-
-# --- 2. LAYOUT: METRICS ROW (Top) ---
+# --- LAYOUT: METRICS CONTAINER (Top) ---
+# We define the container first so it appears at the top, but populate it after calculations
 metrics_container = st.container()
 
 st.markdown("---")
 
-# --- 3. LAYOUT: CHECKLIST COLUMNS (Bottom) ---
+# --- LAYOUT: CHECKLIST COLUMNS (Bottom) ---
 col1, col2 = st.columns(2)
 
 with col1:
@@ -86,19 +82,28 @@ if is_complete:
 final_discount_pct = min(discount_accumulated, 0.29)
 
 # Financials
-annual_savings = risk_premium * final_discount_pct
-new_premium = base_premium - annual_savings
+savings = wildfire_portion_initial * final_discount_pct
+wildfire_portion_new = wildfire_portion_initial - savings
+new_total_premium = other_portion + wildfire_portion_new
 
-# --- RENDER METRICS (Populate the top container) ---
+# --- POPULATE METRICS (Top) ---
 with metrics_container:
-    m1, m2, m3 = st.columns(3)
-    with m1:
-        st.metric("Current Annual Premium", f"${base_premium:,.0f}", help="The base premium before mitigation")
-    with m2:
-        st.metric("New Annual Premium", f"${new_premium:,.0f}", delta=f"-{final_discount_pct*100:.1f}% Reduction", delta_color="normal")
-    with m3:
-        st.metric("Total Annual Savings", f"${annual_savings:,.0f}", delta="Money Back")
+    # Row 1: The Breakdown
+    c1, c2, c3, c4 = st.columns(4)
     
+    with c1:
+        st.metric("Total Base Premium", f"${base_premium:,.0f}", help="Total amount you pay today")
+    
+    with c2:
+        st.metric("Wildfire Risk Portion", f"${wildfire_portion_initial:,.0f}", help="The specific portion of the bill eligible for discounts")
+        
+    with c3:
+        # The Hero Metric: Showing the Wildfire portion shrinking
+        st.metric("New Wildfire Portion", f"${wildfire_portion_new:,.0f}", delta=f"-${savings:,.0f}", delta_color="inverse")
+        
+    with c4:
+        st.metric("New Total Annual Bill", f"${new_total_premium:,.0f}", delta=f"-{final_discount_pct*100:.1f}% Total Drop")
+
     # Progress/Bonus Notification
     if is_complete:
         st.success("✅ **MAXIMUM SAVINGS UNLOCKED:** You have qualified for the Completion Bonus.")
