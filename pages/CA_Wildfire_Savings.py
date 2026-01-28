@@ -48,14 +48,6 @@ st.markdown("""
 **Compare Savings Across Major Insurers:** Includes **Mercury** Separation Tiers, **Chubb** System Tiers, and **Auto Club** Counting logic.
 """)
 
-# --- 3. DISCLAIMERS (Updated) ---
-st.info("""
-**⚠️ Important Disclaimer:** * **Talk to a Broker:** You must inform your insurance agent or broker to request these discounts. Documentation (photos/receipts) is usually required.
-* **Data Source:** These estimates are based on **rate filings as of October 2025** and the **"Insurance for Good" blog post (November 4, 2025)**. 
-* **Subject to Change:** Carrier underwriting guidelines and rates are subject to change at any time. Actual premiums depend on specific underwriting criteria, TIV, and final carrier approval.
-""")
-
-if df_base.empty: st.stop()
 
 # --- 4. TOP METRICS CONTAINER ---
 # We create the container here so it sits at the top, but we fill it at the end of the script.
@@ -361,3 +353,12 @@ with metrics_container:
         st.metric("Estimated Savings", f"${total_savings:,.0f}", delta=f"{accumulated_discount_pct:.2f}% off {basis_label}")
     with m3: 
         st.metric("New Annual Premium", f"${new_premium:,.0f}", delta=f"-${total_savings:,.0f}", delta_color="inverse")
+
+# --- 3. DISCLAIMERS (Updated) ---
+st.info("""
+**⚠️ Important Disclaimer:** * **Talk to a Broker:** You must inform your insurance agent or broker to request these discounts. Documentation (photos/receipts) is usually required.
+* **Data Source:** These estimates are based on **rate filings as of October 2025** and the **"Insurance for Good" blog post (November 4, 2025)**. 
+* **Subject to Change:** Carrier underwriting guidelines and rates are subject to change at any time. Actual premiums depend on specific underwriting criteria, TIV, and final carrier approval.
+""")
+
+if df_base.empty: st.stop()
