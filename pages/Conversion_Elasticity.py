@@ -30,8 +30,7 @@ st.set_page_config(page_title="Conversion Elasticity", layout="wide")
 
 st.title("📈 Conversion Elasticity: Cost vs. Benefit Analysis")
 st.markdown("""
-**The ROI Equation:** This view isolates the **Expected Claims Savings** against the **Program Costs**.
-It answers: *"If we spend money on incentives and fees, does the drop in claims cover the bill?"*
+**"For what we spend money on Faura program incentives and fees, does the drop in claims cover the bill?"  See at different conversion rates.**
 """)
 
 # --- HELPER FUNCTION ---
