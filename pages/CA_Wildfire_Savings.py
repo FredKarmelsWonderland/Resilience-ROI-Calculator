@@ -2,6 +2,34 @@ import streamlit as st
 import pandas as pd
 import os
 
+
+import streamlit as st
+import pandas as pd
+import os
+
+# --- DEBUGGING BLOCK (DELETE AFTER FIXING) ---
+st.write("📂 DEBUGGING FILE PATHS:")
+current_dir = os.path.dirname(__file__)
+st.write(f"I am running in: `{current_dir}`")
+st.write(f"Files I can see here: {os.listdir(current_dir)}")
+# ---------------------------------------------
+
+st.set_page_config(page_title="Carrier Discount Calculator", layout="wide")
+
+@st.cache_data
+def load_carrier_data():
+    current_dir = os.path.dirname(__file__)
+    # Ensure this matches exactly what you see in the "Files I can see" list above
+    csv_path = os.path.join(current_dir, "DiscountTable_12826.csv")
+    
+    if not os.path.exists(csv_path):
+        st.error(f"❌ Error: Could not find file at: {csv_path}")
+        return pd.DataFrame()
+    return pd.read_csv(csv_path)
+
+df_base = load_carrier_data()
+# ... rest of your code ...
+
 # --- PASSWORD PROTECTION ---
 def check_password():
     """Returns `True` if the user had the correct password."""
