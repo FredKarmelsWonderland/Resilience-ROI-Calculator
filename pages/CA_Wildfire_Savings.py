@@ -48,16 +48,22 @@ st.markdown("""
 **Compare Savings Across Major Insurers:** Includes **Mercury** Separation Tiers, **Chubb** System Tiers, and **Auto Club** Counting logic.
 """)
 
-# --- 3. DISCLAIMER (Top) ---
+# --- 3. DISCLAIMERS (Updated) ---
 st.info("""
-**⚠️ Important Disclaimer:** You must inform your insurance agent or broker to request these discounts. Documentation (photos/receipts) is usually required.
-[cite_start]These estimates are based on the **"Insurance for Good" blog post (November 4, 2025)** [cite: 11] and public filings. 
-Actual premiums depend on specific underwriting criteria, TIV, and final carrier approval.
+**⚠️ Important Disclaimer:** * **Talk to a Broker:** You must inform your insurance agent or broker to request these discounts. Documentation (photos/receipts) is usually required.
+* **Data Source:** These estimates are based on **rate filings as of October 2025** and the **"Insurance for Good" blog post (November 4, 2025)**. 
+* **Subject to Change:** Carrier underwriting guidelines and rates are subject to change at any time. Actual premiums depend on specific underwriting criteria, TIV, and final carrier approval.
 """)
 
 if df_base.empty: st.stop()
 
-# --- 4. SIDEBAR CONFIG ---
+# --- 4. TOP METRICS CONTAINER ---
+# We create the container here so it sits at the top, but we fill it at the end of the script.
+st.markdown("---")
+metrics_container = st.container()
+st.markdown("---")
+
+# --- 5. SIDEBAR CONFIG ---
 st.sidebar.header("1. Carrier Selection")
 selected_carrier = st.sidebar.selectbox("Select Insurance Carrier", df_base['Carrier'].unique())
 
@@ -70,8 +76,8 @@ risk_inputs = {}
 st.sidebar.header("2. Risk Factors")
 
 if logic_type == "Farmers_Fireline":
-    st.sidebar.warning("⚠️ **Farmers:** Discounts depend on Fireline Score.")
-    risk_inputs['fireline_score'] = st.sidebar.slider("Fireline Score (0-30)", 0, 30, 4)
+    st.sidebar.warning("⚠️ **Farmers:** Discounts depend on Zesty's Fireline Score.")
+    risk_inputs['fireline_score'] = st.sidebar.slider("Zesty's Fireline Score (0-30)", 0, 30, 4)
 
 elif logic_type == "Allstate_Zesty":
     st.sidebar.warning("⚠️ **Allstate:** Discounts depend on Zesty Level.")
@@ -106,13 +112,26 @@ else:
 
 st.sidebar.metric("Discountable Basis", f"${eligible_premium:,.0f}")
 
-# --- 5. TOP METRICS CONTAINER (Placeholders) ---
-# We define this container HERE so it appears at the top, but we populate it at the END after calculations.
-st.markdown("---")
-metrics_container = st.container()
-st.markdown("---")
+# --- 6. TOOLTIP DICTIONARY ---
+# Definitions from Table 1
+tooltips = {
+    "Firewise USA": "Firewise USA site in Good Standing.",
+    "Fire Risk Community": "Listed by the California Board of Forestry and Fire Protection.",
+    "Debris Removal": "Clearing of vegetation and debris from under decks.",
+    "Zone 0 (5ft)": "Clearing of vegetation, debris, mulch, stored combustible materials, and any movable combustible objects, from the area within 5 feet of the building.",
+    "Zone 0 (Improv)": "Incorporation of only noncombustible materials into property improvements, including fences and gates, within 5 feet of the property.",
+    "30ft Clearance": "Removal or absence of combustible structures, including sheds and other outbuildings, from the area within 30 feet of the property.",
+    "Section 4291": "Compliance with Section 4291 of the Public Resources Code, which requires defensible space around the building.",
+    "Class A Roof": "Class A rated roofs are the most fire resistant.",
+    "Enclosed Eaves": "Covering exposed rafters/eaves with wood or other materials to prevent embers from igniting the roof or reaching the attic space.",
+    "Fire Res Vents": "Vents designed to provide airflow but prevent embers, flames, or intense heat from reaching the attic or crawl spaces.",
+    "Multi-Pane Windows": "When closed, these cover the entire window and do not have openings, preventing fire from entering the home.",
+    "6-inch Vert Space": "Create at least six inches of noncombustible vertical clearance at the bottom of the exterior surface to prevent ground fires from climbing walls.",
+    "IBHS Std": "Home designated as Wildfire Prepared by the Insurance Institute for Business & Home Safety.",
+    "IBHS Plus": "Home designated as Wildfire Prepared PLUS by the Insurance Institute for Business & Home Safety."
+}
 
-# --- 6. LOGIC ENGINE ---
+# --- 7. LOGIC ENGINE ---
 def get_item_discount(item_key, base_val):
     """Calculates discount for a SINGLE item based on risk inputs."""
     
@@ -120,7 +139,7 @@ def get_item_discount(item_key, base_val):
     if logic_type == "ACSC_Count" and item_key not in ["Firewise USA", "Fire Risk Community"]:
         return 0.0 
 
-    # 2. FARMERS (Fireline)
+    # 2. FARMERS (Zesty Fireline)
     if logic_type == "Farmers_Fireline":
         score = risk_inputs.get('fireline_score', 4)
         if score < 4: 
@@ -172,14 +191,14 @@ def get_item_discount(item_key, base_val):
             
     return base_val
 
-# --- 7. CHECKLIST UI ---
+# --- 8. CHECKLIST UI ---
 st.subheader(f"Mitigation Actions for {selected_carrier}")
 col1, col2 = st.columns(2)
 
 checked_items = []
 accumulated_discount_pct = 0.0
 
-def discount_item(label, csv_key, col):
+def discount_item(label, csv_key, col, tooltip_key=None):
     base = carrier_row.get(csv_key, 0.0)
     final_val = get_item_discount(csv_key, base)
     
@@ -190,30 +209,33 @@ def discount_item(label, csv_key, col):
     elif final_val > 0:
         display_text += f" ({final_val:.2f}%)"
     
-    if col.checkbox(display_text, key=csv_key):
+    # Get tooltip
+    help_text = tooltips.get(tooltip_key, "") if tooltip_key else None
+
+    if col.checkbox(display_text, key=csv_key, help=help_text):
         checked_items.append(csv_key)
         return final_val
     return 0.0
 
 with col1:
     st.markdown("#### 🏡 Property Level")
-    accumulated_discount_pct += discount_item("1. Debris Removal Under Deck", "Debris Removal", st)
-    accumulated_discount_pct += discount_item("2. Zone 0: 5ft Non-Combustible", "Zone 0 (5ft)", st)
-    accumulated_discount_pct += discount_item("3. Zone 0: Property Improvements", "Zone 0 (Improv)", st)
-    accumulated_discount_pct += discount_item("4. 30ft Combustible Clearance", "30ft Clearance", st)
-    accumulated_discount_pct += discount_item("5. Section 4291 Compliance", "Section 4291", st)
+    accumulated_discount_pct += discount_item("1. Debris Removal Under Deck", "Debris Removal", st, "Debris Removal")
+    accumulated_discount_pct += discount_item("2. Zone 0: 5ft Non-Combustible", "Zone 0 (5ft)", st, "Zone 0 (5ft)")
+    accumulated_discount_pct += discount_item("3. Zone 0: Property Improvements", "Zone 0 (Improv)", st, "Zone 0 (Improv)")
+    accumulated_discount_pct += discount_item("4. 30ft Combustible Clearance", "30ft Clearance", st, "30ft Clearance")
+    accumulated_discount_pct += discount_item("5. Section 4291 Compliance", "Section 4291", st, "Section 4291")
     
     st.markdown("#### 🏘️ Community Level")
-    accumulated_discount_pct += discount_item("Firewise USA Site", "Firewise USA", st)
-    accumulated_discount_pct += discount_item("Fire Risk Reduction Community", "Fire Risk Community", st)
+    accumulated_discount_pct += discount_item("Firewise USA Site", "Firewise USA", st, "Firewise USA")
+    accumulated_discount_pct += discount_item("Fire Risk Reduction Community", "Fire Risk Community", st, "Fire Risk Community")
 
 with col2:
     st.markdown("#### 🏗️ Structure Hardening")
-    accumulated_discount_pct += discount_item("6. Class A Fire Rated Roof", "Class A Roof", st)
-    accumulated_discount_pct += discount_item("7. Enclosed Eaves", "Enclosed Eaves", st)
-    accumulated_discount_pct += discount_item("8. Fire Resistant Vents", "Fire Res Vents", st)
-    accumulated_discount_pct += discount_item("9. Multi-Pane Windows", "Multi-Pane Windows", st)
-    accumulated_discount_pct += discount_item("10. 6-inch Vertical Clearance", "6-inch Vert Space", st)
+    accumulated_discount_pct += discount_item("6. Class A Fire Rated Roof", "Class A Roof", st, "Class A Roof")
+    accumulated_discount_pct += discount_item("7. Enclosed Eaves", "Enclosed Eaves", st, "Enclosed Eaves")
+    accumulated_discount_pct += discount_item("8. Fire Resistant Vents", "Fire Res Vents", st, "Fire Res Vents")
+    accumulated_discount_pct += discount_item("9. Multi-Pane Windows", "Multi-Pane Windows", st, "Multi-Pane Windows")
+    accumulated_discount_pct += discount_item("10. 6-inch Vertical Clearance", "6-inch Vert Space", st, "6-inch Vert Space")
     
     # IBHS or Mercury/Chubb Specifics
     st.markdown("#### 🏆 Major Designations")
@@ -221,10 +243,10 @@ with col2:
         accumulated_discount_pct += discount_item("Mercury Wildfire Mitigation (Std)", "Merc_Mit_Std", st)
         accumulated_discount_pct += discount_item("Mercury Wildfire Mitigation (Plus)", "Merc_Mit_Plus", st)
     else:
-        accumulated_discount_pct += discount_item("IBHS Wildfire Prepared Home (Std)", "IBHS Std", st)
-        accumulated_discount_pct += discount_item("IBHS Wildfire Prepared Home (Plus)", "IBHS Plus", st)
+        accumulated_discount_pct += discount_item("IBHS Wildfire Prepared Home (Std)", "IBHS Std", st, "IBHS Std")
+        accumulated_discount_pct += discount_item("IBHS Wildfire Prepared Home (Plus)", "IBHS Plus", st, "IBHS Plus")
 
-# --- 8. SPECIAL "OTHERS" SECTION ---
+# --- 9. SPECIAL "OTHERS" SECTION ---
 st.markdown("---")
 st.subheader("➕ Additional Options")
 
@@ -287,7 +309,7 @@ for key, label in extras_map.items():
                 accumulated_discount_pct += val
         col_idx += 1
 
-# --- 9. COMPLETION & BUNDLE LOGIC ---
+# --- 10. COMPLETION & BUNDLE LOGIC ---
 
 # A. AUTO CLUB (Count Items)
 if logic_type == "ACSC_Count":
@@ -326,7 +348,7 @@ if logic_type == "Travelers_Comp":
         accumulated_discount_pct += 1.5
         st.success(f"🎉 **Partial Bonus:** Perimeter + Vertical Clearance verified! (+1.5%)")
 
-# --- 10. FINAL CALCULATIONS & POPULATING TOP WIDGETS ---
+# --- 11. FINAL CALCULATIONS & POPULATING TOP WIDGETS ---
 total_savings = eligible_premium * (accumulated_discount_pct / 100)
 new_premium = base_premium - total_savings
 
