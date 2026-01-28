@@ -38,7 +38,7 @@ if not check_password():
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Faura Risk Scenarios", layout="wide")
 
-st.title("🔥 Faura Risk Sensitivity")
+st.title("🔥 Faura Risk Sensitivity:  See how profitability changes with incident probability")
 
 # --- HELPER FUNCTION FOR CURRENCY INPUTS ---
 def currency_input(label, default_value, tooltip=None):
@@ -170,7 +170,7 @@ crossover_percent = crossover_Incident_prob * 100
 
 
 # --- SCENARIO BAR CHART ---
-st.subheader("See how Profitability Changes with Incident Probability")
+#st.subheader("See how Profitability Changes with Incident Probability")
 
 # Define the specific scenarios requested
 scenarios = [0.0001, 0.001, 0.005, 0.01, 0.02]
