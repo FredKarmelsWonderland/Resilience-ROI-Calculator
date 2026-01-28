@@ -24,9 +24,9 @@ if not check_password():
 
 st.set_page_config(page_title="FAIR Plan Discount Calculator", layout="wide")
 
-st.title("🏛️ California FAIR Plan: Discount Validator")
+st.title("🏛️ California FAIR Plan: Discount Calculator")
 st.markdown("""
-**California 'Safer from Wildfires' Compliance Tool:** This calculator estimates the itemized premium reduction available to homeowners for verified mitigation actions.
+This calculator estimates the itemized premium reduction available to homeowners on the CA FAIR plan for verified mitigation actions.
 """)
 
 # --- SIDEBAR: POLICY INPUTS ---
