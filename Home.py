@@ -120,6 +120,9 @@ def calculate_metrics():
 metrics = calculate_metrics()
 
 # --- DASHBOARD LAYOUT ---
+
+# ROW 1: High Level Portfolio Profit
+st.subheader("1. Portfolio Impact")
 col1, col2, col3, col4 = st.columns(4)
 profit_diff = metrics['faura_profit'] - metrics['sq_profit']
 
@@ -136,6 +139,38 @@ with col4:
         st.metric(label="ROI on Mitigation Spend", value=f"{roi:,.1f}%")
     else:
         st.metric(label="ROI on Mitigation Spend", value="0%")
+
+st.markdown("---")
+
+# ROW 2: Program Economics (THE NEW WIDGETS)
+st.subheader("2. Program Economics Breakdown")
+m1, m2, m3 = st.columns(3)
+
+# Calculate the new values
+claims_saved = metrics['sq_losses'] - metrics['faura_losses']
+total_program_cost = metrics['faura_program_cost'] + metrics['faura_incentives']
+net_project_roi_dollars = claims_saved - total_program_cost
+
+with m1:
+    st.metric(
+        label="🛡️ Claims Saved", 
+        value=f"${claims_saved:,.0f}", 
+        help="Gross reduction in expected losses due to mitigation."
+    )
+with m2:
+    st.metric(
+        label="🧾 Total Program Cost", 
+        value=f"${total_program_cost:,.0f}", 
+        help="Includes Faura Fees + Gift Cards + Premium Discounts.",
+        delta_color="inverse" # Standard Streamlit: Red implies 'Cost'
+    )
+with m3:
+    st.metric(
+        label="💰 Net Project ROI ($)", 
+        value=f"${net_project_roi_dollars:,.0f}", 
+        delta="Net Benefit",
+        help="Claims Saved minus Program Cost."
+    )
 
 st.markdown("---")
 
@@ -190,4 +225,3 @@ with st.expander("ℹ️ Glossary & Formula Logic (Click to Expand)", expanded=F
     st.latex(r'''
         \text{Profit} = \text{Gross Premium} - \Big( \text{UW Expenses} + \text{Expected Losses} + \text{Faura Costs} + \text{Incentives} \Big)
     ''')
-
