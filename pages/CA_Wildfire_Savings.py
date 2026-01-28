@@ -2,14 +2,35 @@ import streamlit as st
 import pandas as pd
 import os
 
-# --- 1. CONFIG & ROBUST DATA LOADING ---
+# --- 1. PASSWORD PROTECTION ---
+def check_password():
+    """Returns `True` if the user had the correct password."""
+    def password_entered():
+        if st.session_state["password"] == "Faura2026":
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        st.session_state["password_correct"] = False
+
+    if not st.session_state["password_correct"]:
+        st.text_input("Please enter the Sales Access Password", type="password", on_change=password_entered, key="password")
+        return False
+    else:
+        return True
+
+if not check_password():
+    st.stop()
+
+# --- 2. CONFIG & DATA LOADING ---
 st.set_page_config(page_title="Carrier Discount Calculator", layout="wide")
 
 @st.cache_data
 def load_carrier_data():
     current_dir = os.path.dirname(__file__)
-    
-    # Auto-find the CSV to avoid filename typos
+    # Robust loader to find the CSV regardless of exact filename typos
     all_files = os.listdir(current_dir)
     target_file = next((f for f in all_files if "DiscountTable" in f and f.endswith(".csv")), None)
     
@@ -23,12 +44,20 @@ def load_carrier_data():
 df_base = load_carrier_data()
 
 st.title("🏘️ California Carrier Discount Calculator")
-st.markdown("Includes **Mercury** Separation Tiers, **Chubb** System Tiers, and **Auto Club** Counting logic.")
+st.markdown("""
+**Compare Savings Across Major Insurers:** Includes **Mercury** Separation Tiers, **Chubb** System Tiers, and **Auto Club** Counting logic.
+""")
 
-if df_base.empty:
-    st.stop()
+# --- 3. DISCLAIMER (Top) ---
+st.info("""
+**⚠️ Important Disclaimer:** You must inform your insurance agent or broker to request these discounts. Documentation (photos/receipts) is usually required.
+[cite_start]These estimates are based on the **"Insurance for Good" blog post (November 4, 2025)** [cite: 11] and public filings. 
+Actual premiums depend on specific underwriting criteria, TIV, and final carrier approval.
+""")
 
-# --- 2. SIDEBAR CONFIG ---
+if df_base.empty: st.stop()
+
+# --- 4. SIDEBAR CONFIG ---
 st.sidebar.header("1. Carrier Selection")
 selected_carrier = st.sidebar.selectbox("Select Insurance Carrier", df_base['Carrier'].unique())
 
@@ -77,11 +106,17 @@ else:
 
 st.sidebar.metric("Discountable Basis", f"${eligible_premium:,.0f}")
 
-# --- 3. LOGIC ENGINE ---
+# --- 5. TOP METRICS CONTAINER (Placeholders) ---
+# We define this container HERE so it appears at the top, but we populate it at the END after calculations.
+st.markdown("---")
+metrics_container = st.container()
+st.markdown("---")
+
+# --- 6. LOGIC ENGINE ---
 def get_item_discount(item_key, base_val):
     """Calculates discount for a SINGLE item based on risk inputs."""
     
-    # 1. AUTO CLUB (Count Logic - items are 0 in CSV, handled later)
+    # 1. AUTO CLUB (Count Logic)
     if logic_type == "ACSC_Count" and item_key not in ["Firewise USA", "Fire Risk Community"]:
         return 0.0 
 
@@ -137,7 +172,7 @@ def get_item_discount(item_key, base_val):
             
     return base_val
 
-# --- 4. CHECKLIST UI ---
+# --- 7. CHECKLIST UI ---
 st.subheader(f"Mitigation Actions for {selected_carrier}")
 col1, col2 = st.columns(2)
 
@@ -145,7 +180,6 @@ checked_items = []
 accumulated_discount_pct = 0.0
 
 def discount_item(label, csv_key, col):
-    # Safe get from CSV
     base = carrier_row.get(csv_key, 0.0)
     final_val = get_item_discount(csv_key, base)
     
@@ -190,13 +224,13 @@ with col2:
         accumulated_discount_pct += discount_item("IBHS Wildfire Prepared Home (Std)", "IBHS Std", st)
         accumulated_discount_pct += discount_item("IBHS Wildfire Prepared Home (Plus)", "IBHS Plus", st)
 
-# --- 5. SPECIAL "OTHERS" SECTION ---
+# --- 8. SPECIAL "OTHERS" SECTION ---
 st.markdown("---")
 st.subheader("➕ Additional Options")
 
 c1, c2, c3 = st.columns(3)
 
-# CHUBB SYSTEM LOGIC (Dropdown)
+# CHUBB SYSTEM LOGIC
 if logic_type == "Chubb_Complex":
     with c1:
         st.markdown("**Wildfire Suppression System**")
@@ -210,15 +244,13 @@ if logic_type == "Chubb_Complex":
             accumulated_discount_pct += sys_val
             st.success(f"+{sys_val}% Applied")
 
-# MERCURY COMMUNITY STACKING (Checkbox)
+# MERCURY COMMUNITY STACKING
 if logic_type == "Mercury_Complex":
     with c1:
-        # Note m: 15% Base. Stacks to 16/15.1/16.1 with Firewise/FireRisk
         if st.checkbox("Mercury Wildfire Mitigation Community (15%)"):
             has_fw = "Firewise USA" in checked_items
             has_fr = "Fire Risk Community" in checked_items
             
-            # Remove individual credits to replace with bundle
             deduction = 0.0
             if has_fw: deduction += 5.0
             if has_fr: deduction += 0.1
@@ -244,7 +276,6 @@ col_idx = 1
 cols = [c1, c2, c3]
 
 for key, label in extras_map.items():
-    # Only render if carrier has this discount
     base = carrier_row.get(key, 0.0)
     if base == 0: continue
     
@@ -256,7 +287,7 @@ for key, label in extras_map.items():
                 accumulated_discount_pct += val
         col_idx += 1
 
-# --- 6. COMPLETION & BUNDLE LOGIC ---
+# --- 9. COMPLETION & BUNDLE LOGIC ---
 
 # A. AUTO CLUB (Count Items)
 if logic_type == "ACSC_Count":
@@ -269,7 +300,7 @@ if logic_type == "ACSC_Count":
         accumulated_discount_pct += val
         st.success(f"🎉 **Bundle:** {count} items = +{val}%")
 
-# B. FARMERS / ALLSTATE / TRAVELERS (All 10/12 Items)
+# B. FARMERS / ALLSTATE / TRAVELERS (All Items)
 prop_items_all = ["Debris Removal", "Zone 0 (5ft)", "Zone 0 (Improv)", "30ft Clearance", "Section 4291", 
               "Class A Roof", "Enclosed Eaves", "Fire Res Vents", "Multi-Pane Windows", "6-inch Vert Space"]
 comm_items = ["Firewise USA", "Fire Risk Community"]
@@ -295,12 +326,16 @@ if logic_type == "Travelers_Comp":
         accumulated_discount_pct += 1.5
         st.success(f"🎉 **Partial Bonus:** Perimeter + Vertical Clearance verified! (+1.5%)")
 
-# --- 7. FINAL OUTPUT ---
+# --- 10. FINAL CALCULATIONS & POPULATING TOP WIDGETS ---
 total_savings = eligible_premium * (accumulated_discount_pct / 100)
 new_premium = base_premium - total_savings
 
-st.markdown("---")
-m1, m2, m3 = st.columns(3)
-with m1: st.metric("Current Annual Premium", f"${base_premium:,.0f}")
-with m2: st.metric("Estimated Savings", f"${total_savings:,.0f}", delta=f"{accumulated_discount_pct:.2f}% Total")
-with m3: st.metric("New Annual Premium", f"${new_premium:,.0f}", delta=f"-${total_savings:,.0f}", delta_color="inverse")
+# WRITE TO THE TOP CONTAINER
+with metrics_container:
+    m1, m2, m3 = st.columns(3)
+    with m1: 
+        st.metric("Current Annual Premium", f"${base_premium:,.0f}")
+    with m2: 
+        st.metric("Estimated Savings", f"${total_savings:,.0f}", delta=f"{accumulated_discount_pct:.2f}% off {basis_label}")
+    with m3: 
+        st.metric("New Annual Premium", f"${new_premium:,.0f}", delta=f"-${total_savings:,.0f}", delta_color="inverse")
