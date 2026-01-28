@@ -2,89 +2,31 @@ import streamlit as st
 import pandas as pd
 import os
 
-
-import streamlit as st
-import pandas as pd
-import os
-
-# --- DEBUGGING BLOCK (DELETE AFTER FIXING) ---
-st.write("📂 DEBUGGING FILE PATHS:")
-current_dir = os.path.dirname(__file__)
-st.write(f"I am running in: `{current_dir}`")
-st.write(f"Files I can see here: {os.listdir(current_dir)}")
-# ---------------------------------------------
-
+# --- 1. CONFIG & ROBUST DATA LOADING ---
 st.set_page_config(page_title="Carrier Discount Calculator", layout="wide")
 
 @st.cache_data
 def load_carrier_data():
     current_dir = os.path.dirname(__file__)
-    # Ensure this matches exactly what you see in the "Files I can see" list above
-    csv_path = os.path.join(current_dir, "DiscountTable_12826.csv")
     
-    if not os.path.exists(csv_path):
-        st.error(f"❌ Error: Could not find file at: {csv_path}")
+    # Auto-find the CSV to avoid filename typos
+    all_files = os.listdir(current_dir)
+    target_file = next((f for f in all_files if "DiscountTable" in f and f.endswith(".csv")), None)
+    
+    if target_file is None:
+        st.error(f"❌ Error: Could not find any CSV file starting with 'DiscountTable' in {current_dir}")
         return pd.DataFrame()
+    
+    csv_path = os.path.join(current_dir, target_file)
     return pd.read_csv(csv_path)
 
 df_base = load_carrier_data()
-# ... rest of your code ...
 
-# --- PASSWORD PROTECTION ---
-def check_password():
-    """Returns `True` if the user had the correct password."""
-
-    def password_entered():
-        """Checks whether a password entered by the user is correct."""
-        if st.session_state["password"] == "Faura2026":  # <--- Set your password here
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]  # Don't store the password
-        else:
-            st.session_state["password_correct"] = False
-
-    # Initialize session state variables
-    if "password_correct" not in st.session_state:
-        st.session_state["password_correct"] = False
-
-    # Show input if not authenticated
-    if not st.session_state["password_correct"]:
-        st.text_input(
-            "Please enter the Sales Access Password", 
-            type="password", 
-            on_change=password_entered, 
-            key="password"
-        )
-        return False
-    else:
-        return True
-
-if not check_password():
-    st.stop()  # Do not run the rest of the app if password is wrong
-
-
-@st.cache_data
-def load_carrier_data():
-    # 1. Get the directory where THIS python file is located
-    current_dir = os.path.dirname(__file__)
-    
-    # 2. Combine it with the filename (Make sure this matches your actual file exactly!)
-    # You said the name is "Table_128626", so I am using that here.
-    # If it is actually "DiscountTable_12826.csv", change the string below.
-    csv_path = os.path.join(current_dir, "DiscountTable_12826.csv")
-    
-    if not os.path.exists(csv_path):
-        st.error(f"❌ Error: Could not find file at: {csv_path}")
-        # Helpful debugging: print where it looked
-        st.write(f"I am looking in this folder: {current_dir}")
-        return pd.DataFrame()
-        
-    return pd.read_csv(csv_path)
-
-df_base = load_carrier_data()
 st.title("🏘️ California Carrier Discount Calculator")
 st.markdown("Includes **Mercury** Separation Tiers, **Chubb** System Tiers, and **Auto Club** Counting logic.")
 
-if df_base.empty: st.stop()
+if df_base.empty:
+    st.stop()
 
 # --- 2. SIDEBAR CONFIG ---
 st.sidebar.header("1. Carrier Selection")
@@ -139,7 +81,7 @@ st.sidebar.metric("Discountable Basis", f"${eligible_premium:,.0f}")
 def get_item_discount(item_key, base_val):
     """Calculates discount for a SINGLE item based on risk inputs."""
     
-    # 1. AUTO CLUB (Count Logic)
+    # 1. AUTO CLUB (Count Logic - items are 0 in CSV, handled later)
     if logic_type == "ACSC_Count" and item_key not in ["Firewise USA", "Fire Risk Community"]:
         return 0.0 
 
@@ -164,7 +106,7 @@ def get_item_discount(item_key, base_val):
         zone = risk_inputs.get('hazard_zone', 'High')
         is_high = zone in ["High", "Very High"]
         
-        # Note o items: Vents, Deck, Defensible Space Adj
+        # Items requiring High Zone: Vents, Non-Comb Deck, Def Space Adj
         if item_key in ["Fire Res Vents", "Non_Comb_Ext", "Def_Space_Adj"]:
             return base_val if is_high else 0.0
         return base_val
@@ -203,6 +145,7 @@ checked_items = []
 accumulated_discount_pct = 0.0
 
 def discount_item(label, csv_key, col):
+    # Safe get from CSV
     base = carrier_row.get(csv_key, 0.0)
     final_val = get_item_discount(csv_key, base)
     
@@ -241,7 +184,6 @@ with col2:
     # IBHS or Mercury/Chubb Specifics
     st.markdown("#### 🏆 Major Designations")
     if logic_type == "Mercury_Complex":
-        # Mercury uses "Mitigation" instead of IBHS in user note
         accumulated_discount_pct += discount_item("Mercury Wildfire Mitigation (Std)", "Merc_Mit_Std", st)
         accumulated_discount_pct += discount_item("Mercury Wildfire Mitigation (Plus)", "Merc_Mit_Plus", st)
     else:
@@ -276,9 +218,7 @@ if logic_type == "Mercury_Complex":
             has_fw = "Firewise USA" in checked_items
             has_fr = "Fire Risk Community" in checked_items
             
-            # Remove individual community credits to replace with bundle
-            # Note: The 'discount_item' function already added 5.0 (FW) and 0.1 (FR) to 'accumulated_discount_pct'
-            # We must back them out if we are applying the bundle.
+            # Remove individual credits to replace with bundle
             deduction = 0.0
             if has_fw: deduction += 5.0
             if has_fr: deduction += 0.1
@@ -289,7 +229,7 @@ if logic_type == "Mercury_Complex":
             elif has_fr: final_comm_val = 15.1
             
             accumulated_discount_pct = accumulated_discount_pct - deduction + final_comm_val
-            st.success(f"🎉 **Community Bundle:** {final_comm_val}% (Replaces individual community credits)")
+            st.success(f"🎉 **Community Bundle:** {final_comm_val}% (Replaces individual credits)")
 
 # DYNAMIC CHECKBOXES FOR "SPARSE" COLUMNS
 extras_map = {
@@ -300,13 +240,14 @@ extras_map = {
     "Func_Shutters": "Functional Shutters"
 }
 
-# Distribute remaining extras across columns
 col_idx = 1
 cols = [c1, c2, c3]
 
 for key, label in extras_map.items():
+    # Only render if carrier has this discount
     base = carrier_row.get(key, 0.0)
-    # Apply logic (Chubb Hazard)
+    if base == 0: continue
+    
     val = get_item_discount(key, base)
     
     if val > 0:
@@ -315,9 +256,10 @@ for key, label in extras_map.items():
                 accumulated_discount_pct += val
         col_idx += 1
 
-# --- 6. COMPLETION LOGIC ---
+# --- 6. COMPLETION & BUNDLE LOGIC ---
+
+# A. AUTO CLUB (Count Items)
 if logic_type == "ACSC_Count":
-    # 10 property items
     prop_items = ["Debris Removal", "Zone 0 (5ft)", "Zone 0 (Improv)", "30ft Clearance", "Section 4291", 
                   "Class A Roof", "Enclosed Eaves", "Fire Res Vents", "Multi-Pane Windows", "6-inch Vert Space"]
     count = sum(1 for item in prop_items if item in checked_items)
@@ -327,33 +269,38 @@ if logic_type == "ACSC_Count":
         accumulated_discount_pct += val
         st.success(f"🎉 **Bundle:** {count} items = +{val}%")
 
-# (Completion logic for Farmers/Allstate/Travelers remains similar to previous version...)
-# Add back if needed or assume user has context from previous turn. 
-# For brevity, I will include the Farmers/Allstate completion logic here briefly.
-
-all_12_items = ["Debris Removal", "Zone 0 (5ft)", "Zone 0 (Improv)", "30ft Clearance", "Section 4291", 
-              "Class A Roof", "Enclosed Eaves", "Fire Res Vents", "Multi-Pane Windows", "6-inch Vert Space", 
-              "Firewise USA", "Fire Risk Community"]
+# B. FARMERS / ALLSTATE / TRAVELERS (All 10/12 Items)
+prop_items_all = ["Debris Removal", "Zone 0 (5ft)", "Zone 0 (Improv)", "30ft Clearance", "Section 4291", 
+              "Class A Roof", "Enclosed Eaves", "Fire Res Vents", "Multi-Pane Windows", "6-inch Vert Space"]
+comm_items = ["Firewise USA", "Fire Risk Community"]
+all_12_items = prop_items_all + comm_items
 
 if logic_type == "Farmers_Fireline":
     if all(item in checked_items for item in all_12_items):
         accumulated_discount_pct += 2.9
-        st.success("🎉 **Completion Bonus:** +2.9%")
+        st.success("🎉 **Completion Bonus:** All 12 items verified! (+2.9%)")
 
 if logic_type == "Allstate_Zesty":
-    prop_only = all_12_items[:10]
-    if all(item in checked_items for item in prop_only):
+    if all(item in checked_items for item in prop_items_all):
         zesty = risk_inputs.get('zesty_score', 6)
         bonus = 7.0 if zesty >= 6 else 2.5
         accumulated_discount_pct += bonus
-        st.success(f"🎉 **Completion Bonus:** +{bonus}%")
+        st.success(f"🎉 **Completion Bonus:** All property items verified! (+{bonus}%)")
 
-# --- 7. OUTPUT ---
+if logic_type == "Travelers_Comp":
+    if all(item in checked_items for item in prop_items_all):
+        accumulated_discount_pct += 5.0
+        st.success(f"🎉 **Completion Bonus:** All property items verified! (+5.0%)")
+    elif all(item in checked_items for item in ["Debris Removal", "Zone 0 (5ft)", "Zone 0 (Improv)", "30ft Clearance", "6-inch Vert Space"]):
+        accumulated_discount_pct += 1.5
+        st.success(f"🎉 **Partial Bonus:** Perimeter + Vertical Clearance verified! (+1.5%)")
+
+# --- 7. FINAL OUTPUT ---
 total_savings = eligible_premium * (accumulated_discount_pct / 100)
 new_premium = base_premium - total_savings
 
 st.markdown("---")
 m1, m2, m3 = st.columns(3)
-with m1: st.metric("Current Premium", f"${base_premium:,.0f}")
+with m1: st.metric("Current Annual Premium", f"${base_premium:,.0f}")
 with m2: st.metric("Estimated Savings", f"${total_savings:,.0f}", delta=f"{accumulated_discount_pct:.2f}% Total")
-with m3: st.metric("New Premium", f"${new_premium:,.0f}", delta=f"-${total_savings:,.0f}", delta_color="inverse")
+with m3: st.metric("New Annual Premium", f"${new_premium:,.0f}", delta=f"-${total_savings:,.0f}", delta_color="inverse")
