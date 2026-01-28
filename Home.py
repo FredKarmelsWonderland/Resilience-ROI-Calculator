@@ -121,54 +121,70 @@ metrics = calculate_metrics()
 
 # --- DASHBOARD LAYOUT ---
 
-# ROW 1: High Level Portfolio Profit
-st.subheader("1. Portfolio Impact")
-col1, col2, col3, col4 = st.columns(4)
+# Consolidated Metrics Row
+st.subheader("1. Financial Impact Analysis")
+c1, c2, c3, c4, c5 = st.columns(5)
+
+# 1. Status Quo Profit
+with c1:
+    st.metric(
+        label="Status Quo Profit", 
+        value=f"${metrics['sq_profit']:,.0f}"
+    )
+
+# 2. With Faura Profit
 profit_diff = metrics['faura_profit'] - metrics['sq_profit']
+with c2:
+    st.metric(
+        label="With Faura Profit", 
+        value=f"${metrics['faura_profit']:,.0f}", 
+        delta=f"${profit_diff:,.0f}"
+    )
 
-with col1:
-    st.metric(label="Status Quo Profit", value=f"${metrics['sq_profit']:,.0f}")
-with col2:
-    st.metric(label="With Faura Profit", value=f"${metrics['faura_profit']:,.0f}", delta=f"${profit_diff:,.0f}")
-with col3:
-    st.metric(label="Net Improvement (Spread)", value=f"${profit_diff:,.0f}", delta_color="off")
-with col4:
-    program_investment = metrics['faura_program_cost'] + metrics['faura_incentives']
-    if program_investment > 0:
-        roi = (profit_diff / program_investment) * 100
-        st.metric(label="ROI on Mitigation Spend", value=f"{roi:,.1f}%")
-    else:
-        st.metric(label="ROI on Mitigation Spend", value="0%")
-
-st.markdown("---")
-
-# ROW 2: Program Economics (THE NEW WIDGETS)
-st.subheader("2. Program Economics Breakdown")
-m1, m2, m3 = st.columns(3)
-
-# Calculate the new values
+# 3. Claims Saved
 claims_saved = metrics['sq_losses'] - metrics['faura_losses']
-total_program_cost = metrics['faura_program_cost'] + metrics['faura_incentives']
-net_project_roi_dollars = claims_saved - total_program_cost
-
-with m1:
+with c3:
     st.metric(
         label="🛡️ Claims Saved", 
         value=f"${claims_saved:,.0f}", 
         help="Gross reduction in expected losses due to mitigation."
     )
-with m2:
+
+# 4. Program Cost
+total_program_cost = metrics['faura_program_cost'] + metrics['faura_incentives']
+with c4:
     st.metric(
         label="🧾 Total Program Cost", 
         value=f"${total_program_cost:,.0f}", 
         help="Includes Faura Fees + Gift Cards + Premium Discounts.",
-        delta_color="inverse" # Standard Streamlit: Red implies 'Cost'
+        delta_color="inverse"
     )
-with m3:
+
+# 5. Net Project ROI (With Multiplier Delta)
+net_project_roi_dollars = claims_saved - total_program_cost
+
+# ROI Delta Logic
+if total_program_cost > 0:
+    if net_project_roi_dollars >= 0:
+        # Profitable: Show Multiplier (Revenue / Cost)
+        multiplier = claims_saved / total_program_cost
+        display_delta = f"{multiplier:.1f}x ROI Multiplier"
+        delta_color = "normal" # Green
+    else:
+        # Loss: Show Negative ROI %
+        roi_pct = net_project_roi_dollars / total_program_cost
+        display_delta = f"{roi_pct:.0%} Negative ROI"
+        delta_color = "normal" # Red
+else:
+    display_delta = "N/A"
+    delta_color = "off"
+
+with c5:
     st.metric(
         label="💰 Net Project ROI ($)", 
         value=f"${net_project_roi_dollars:,.0f}", 
-        delta="Net Benefit",
+        delta=display_delta,
+        delta_color=delta_color,
         help="Claims Saved minus Program Cost."
     )
 
