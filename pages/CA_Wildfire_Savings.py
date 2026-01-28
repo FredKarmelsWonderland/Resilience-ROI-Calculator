@@ -42,7 +42,7 @@ def load_carrier_data():
     # 2. Combine it with the filename (Make sure this matches your actual file exactly!)
     # You said the name is "Table_128626", so I am using that here.
     # If it is actually "DiscountTable_12826.csv", change the string below.
-    csv_path = os.path.join(current_dir, "DiscountTable_128626.csv")
+    csv_path = os.path.join(current_dir, "DiscountTable_12826.csv")
     
     if not os.path.exists(csv_path):
         st.error(f"❌ Error: Could not find file at: {csv_path}")
