@@ -38,7 +38,7 @@ if not check_password():
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="Faura Risk Scenarios", layout="wide")
 
-st.title("🔥 Faura Risk Sensitivity:  See how profitability changes with incident probability")
+st.title("🔥 Faura Risk Sensitivity")
 
 # --- HELPER FUNCTION FOR CURRENCY INPUTS ---
 def currency_input(label, default_value, tooltip=None):
@@ -193,10 +193,8 @@ fig.add_trace(go.Bar(
     name='Status Quo',
     x=scenario_labels,
     y=sq_data,
-    marker_color='#EF553B',
-    text=[f"${x:,.0f}" for x in sq_data],
-    textposition='auto',
-    textfont=dict(size=18, color="white", family="Arial Black")
+    marker_color='#EF553B'
+    # Removed text labels within bars
 ))
 
 # 2. Faura Bars
@@ -204,10 +202,8 @@ fig.add_trace(go.Bar(
     name='With Faura',
     x=scenario_labels,
     y=faura_data,
-    marker_color='#4B604D',
-    text=[f"${x:,.0f}" for x in faura_data],
-    textposition='auto',
-    textfont=dict(size=18, color="white", family="Arial Black")
+    marker_color='#4B604D'
+    # Removed text labels within bars
 ))
 
 # 3. Add Annotation for the DIFFERENCE (The "Net Benefit")
