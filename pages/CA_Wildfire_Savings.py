@@ -7,7 +7,7 @@ st.set_page_config(page_title="Carrier Discount Calculator", layout="wide")
 
 @st.cache_data
 def load_carrier_data():
-    csv_path = "Users/Desktop/Faura/Streamlit/Insurance for Good Discount Savings - Table.csv"
+    csv_path = "Users/Desktop/Faura/Streamlit/DiscountTable_12826.csv"
     if not os.path.exists(csv_path):
         st.error(f"❌ Error: '{csv_path}' not found.")
         return pd.DataFrame()
