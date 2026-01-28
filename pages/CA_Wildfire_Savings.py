@@ -2,19 +2,57 @@ import streamlit as st
 import pandas as pd
 import os
 
-# --- 1. CONFIG & DATA ---
-st.set_page_config(page_title="Carrier Discount Calculator", layout="wide")
+# --- PASSWORD PROTECTION ---
+def check_password():
+    """Returns `True` if the user had the correct password."""
+
+    def password_entered():
+        """Checks whether a password entered by the user is correct."""
+        if st.session_state["password"] == "Faura2026":  # <--- Set your password here
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # Don't store the password
+        else:
+            st.session_state["password_correct"] = False
+
+    # Initialize session state variables
+    if "password_correct" not in st.session_state:
+        st.session_state["password_correct"] = False
+
+    # Show input if not authenticated
+    if not st.session_state["password_correct"]:
+        st.text_input(
+            "Please enter the Sales Access Password", 
+            type="password", 
+            on_change=password_entered, 
+            key="password"
+        )
+        return False
+    else:
+        return True
+
+if not check_password():
+    st.stop()  # Do not run the rest of the app if password is wrong
+
 
 @st.cache_data
 def load_carrier_data():
-    csv_path = "Users/Desktop/Faura/Streamlit/DiscountTable_12826.csv"
+    # 1. Get the directory where THIS python file is located
+    current_dir = os.path.dirname(__file__)
+    
+    # 2. Combine it with the filename (Make sure this matches your actual file exactly!)
+    # You said the name is "Table_128626", so I am using that here.
+    # If it is actually "DiscountTable_12826.csv", change the string below.
+    csv_path = os.path.join(current_dir, "DiscountTable_128626.csv")
+    
     if not os.path.exists(csv_path):
-        st.error(f"❌ Error: '{csv_path}' not found.")
+        st.error(f"❌ Error: Could not find file at: {csv_path}")
+        # Helpful debugging: print where it looked
+        st.write(f"I am looking in this folder: {current_dir}")
         return pd.DataFrame()
+        
     return pd.read_csv(csv_path)
 
 df_base = load_carrier_data()
-
 st.title("🏘️ California Carrier Discount Calculator")
 st.markdown("Includes **Mercury** Separation Tiers, **Chubb** System Tiers, and **Auto Club** Counting logic.")
 
