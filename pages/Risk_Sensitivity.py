@@ -84,13 +84,13 @@ st.sidebar.markdown("---")
 st.sidebar.header("2. Risk Inputs")
 
 # NOTE: This input is for the "Current State" table at the bottom
-incident_prob_input = st.sidebar.number_input(
-    "Current Annual incident Prob (%)", 
+Incident_prob_input = st.sidebar.number_input(
+    "Current Annual Incident Prob (%)", 
     value=1.0, 
     step=0.01,
     format="%.2f"
 )
-current_incident_prob = incident_prob_input / 100
+current_Incident_prob = Incident_prob_input / 100
 
 mdr_unmitigated_input = st.sidebar.number_input("MDR (Unmitigated) %", value=80.0, step=0.1)
 mdr_unmitigated = mdr_unmitigated_input / 100
@@ -111,22 +111,22 @@ premium_discount = currency_input("Premium Discount", 100)
 
 
 # --- CALCULATION LOGIC ---
-def calculate_metrics(override_incident_prob=None):
-    calc_incident_prob = override_incident_prob if override_incident_prob is not None else current_incident_prob
+def calculate_metrics(override_Incident_prob=None):
+    calc_Incident_prob = override_Incident_prob if override_Incident_prob is not None else current_Incident_prob
 
     total_premium = n_homes * avg_premium
     total_uw_expense = total_premium * expense_ratio
 
     # --- STATUS QUO ---
-    sq_losses = n_homes * avg_tiv * calc_incident_prob * mdr_unmitigated
+    sq_losses = n_homes * avg_tiv * calc_Incident_prob * mdr_unmitigated
     sq_profit = total_premium - (total_uw_expense + sq_losses)
 
     # --- FAURA ---
     n_converted = n_homes * conversion_rate
     n_unconverted = n_homes * (1 - conversion_rate)
 
-    faura_loss_unconverted = n_unconverted * avg_tiv * calc_incident_prob * mdr_unmitigated
-    faura_loss_converted = n_converted * avg_tiv * calc_incident_prob * mdr_mitigated
+    faura_loss_unconverted = n_unconverted * avg_tiv * calc_Incident_prob * mdr_unmitigated
+    faura_loss_converted = n_converted * avg_tiv * calc_Incident_prob * mdr_mitigated
     faura_total_losses = faura_loss_unconverted + faura_loss_converted
 
     total_faura_fee = n_homes * faura_cost
@@ -163,10 +163,10 @@ mdr_diff = mdr_unmitigated - mdr_mitigated
 tiv_risk_pool = n_converted * avg_tiv
 
 if tiv_risk_pool > 0 and mdr_diff > 0:
-    crossover_incident_prob = total_program_cost / (tiv_risk_pool * mdr_diff)
+    crossover_Incident_prob = total_program_cost / (tiv_risk_pool * mdr_diff)
 else:
-    crossover_incident_prob = 0 
-crossover_percent = crossover_incident_prob * 100
+    crossover_Incident_prob = 0 
+crossover_percent = crossover_Incident_prob * 100
 
 
 # --- SCENARIO BAR CHART ---
@@ -181,7 +181,7 @@ faura_data = []
 deltas = []
 
 for prob in scenarios:
-    res = calculate_metrics(override_incident_prob=prob)
+    res = calculate_metrics(override_Incident_prob=prob)
     sq_data.append(res['sq_profit'])
     faura_data.append(res['faura_profit'])
     deltas.append(res['faura_profit'] - res['sq_profit'])
@@ -227,11 +227,11 @@ for i, delta in enumerate(deltas):
 
 fig.update_layout(
     title=dict(
-        text="Net Profit Comparison by incident Probability",
+        text="Net Profit Comparison by Incident Probability",
         font=dict(size=26)
     ),
     xaxis=dict(
-        title="incident Probability Scenario",
+        title="Incident Probability Scenario",
         title_font=dict(size=22),
         tickfont=dict(size=18)
     ),
@@ -313,4 +313,4 @@ with col_right:
     
     if crossover_percent > 0:
         # REPLACED BLOCKQUOTE WITH st.success FOR VISIBILITY
-        st.success(f"✅ **Critical Insight:** For your current inputs, Faura becomes profitable once the annual incident probability exceeds **{crossover_percent:.3f}%**.")
+        st.success(f"✅ **Critical Insight:** For your current inputs, Faura becomes profitable once the annual Incident probability exceeds **{crossover_percent:.3f}%**.")
