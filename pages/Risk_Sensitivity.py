@@ -169,10 +169,7 @@ else:
 crossover_percent = crossover_Incident_prob * 100
 
 
-# --- SCENARIO BAR CHART ---
-#st.subheader("See how Profitability Changes with Incident Probability")
-
-# Define the specific scenarios requested
+# --- SCENARIO BAR CHART GENERATION ---
 scenarios = [0.0001, 0.001, 0.005, 0.01, 0.02]
 scenario_labels = ["0.01%", "0.10%", "0.50%", "1.00%", "2.00%"]
 
@@ -194,7 +191,6 @@ fig.add_trace(go.Bar(
     x=scenario_labels,
     y=sq_data,
     marker_color='#EF553B'
-    # Removed text labels within bars
 ))
 
 # 2. Faura Bars
@@ -203,10 +199,9 @@ fig.add_trace(go.Bar(
     x=scenario_labels,
     y=faura_data,
     marker_color='#4B604D'
-    # Removed text labels within bars
 ))
 
-# 3. Add Annotation for the DIFFERENCE (The "Net Benefit")
+# 3. Annotations
 for i, delta in enumerate(deltas):
     max_height = max(sq_data[i], faura_data[i])
     text_color = "green" if delta > 0 else "red"
@@ -238,7 +233,7 @@ fig.update_layout(
     ),
     barmode='group',
     template="plotly_white",
-    height=600,
+    height=500,
     legend=dict(
         orientation="h", 
         yanchor="bottom", 
@@ -249,7 +244,14 @@ fig.update_layout(
     )
 )
 
+# --- RENDER CRITICAL INSIGHT (MOVED UP) ---
+st.markdown("---")
+if crossover_percent > 0:
+    st.success(f"✅ **Critical Insight:** For your current inputs, Faura becomes profitable once the annual Incident probability exceeds **{crossover_percent:.3f}%**.")
+
+# --- RENDER CHART ---
 st.plotly_chart(fig, use_container_width=True)
+
 
 # --- EXPLANATION FOOTER ---
 st.markdown("---")
@@ -263,13 +265,11 @@ total_incentives = gift_card + premium_discount
 weighted_incentives = total_incentives * conversion_rate
 avg_prog_cost = faura_cost + weighted_incentives
 
-# 2. Calculate Weighted Average Savings
-# Low Risk Example (0.01%)
+# 2. Calculate Weighted Average Savings (Examples)
 low_prob = 0.0001
 low_loss_diff = (avg_tiv * low_prob * mdr_unmitigated) - (avg_tiv * low_prob * mdr_mitigated)
 low_weighted_savings = low_loss_diff * conversion_rate
 
-# High Risk Example (1.00%)
 high_prob = 0.01
 high_loss_diff = (avg_tiv * high_prob * mdr_unmitigated) - (avg_tiv * high_prob * mdr_mitigated)
 high_weighted_savings = high_loss_diff * conversion_rate
@@ -293,7 +293,6 @@ with col_left:
         \boxed{{\textbf{{\${avg_prog_cost:,.0f}}}}}
     ''')
     
-    # REPLACED st.caption WITH st.info FOR VISIBILITY
     st.info(f"👉 **Hurdle Rate:** We need to generate at least **\${avg_prog_cost:,.0f}** in savings per home just to break even on the program costs.")
 
 with col_right:
@@ -306,7 +305,3 @@ with col_right:
     
     * **At High Risk (1.00%):** The expected savings jumps to **\${high_weighted_savings:,.0f}**. Since the program cost stays flat at \${avg_prog_cost:,.0f}, **you gain massive profit.**
     """)
-    
-    if crossover_percent > 0:
-        # REPLACED BLOCKQUOTE WITH st.success FOR VISIBILITY
-        st.success(f"✅ **Critical Insight:** For your current inputs, Faura becomes profitable once the annual Incident probability exceeds **{crossover_percent:.3f}%**.")
