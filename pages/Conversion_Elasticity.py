@@ -133,7 +133,7 @@ with col2:
         "Total Program Cost (at 20%)", 
         f"${stats_20['Program_Cost']:,.0f}", 
         delta="Fees + Incentives",
-        delta_color="inverse"
+        delta_color="normal"
     )
 
 # --- ROI DISPLAY LOGIC ---
@@ -153,7 +153,7 @@ if net_val >= 0:
 else:
     # Example: -33% ROI (Loss)
     display_delta = f"{roi_val:.0%} Negative ROI"
-    delta_color = "inverse" # Red
+    delta_color = "normal" # Red
 
 with col3:
     st.metric(
