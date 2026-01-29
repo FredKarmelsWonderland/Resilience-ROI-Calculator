@@ -62,7 +62,6 @@ premium_discount = currency_input("Premium Discount", 100)
 
 
 # --- MAIN PAGE SLIDERS ---
-# All ranges start at 0.0. Defaults set to sensible starting points.
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -114,7 +113,7 @@ loss_reduction_per_converted_home = (avg_tiv * current_Incident_prob * mdr_unmit
 total_incentives_per_converted_home = gift_card + premium_discount
 net_benefit_per_conversion = loss_reduction_per_converted_home - total_incentives_per_converted_home
 
-# We use backslash-dollar sign (\$) to prevent Streamlit from thinking this is LaTeX Math
+# Used backslash-dollar sign (\$) to prevent Streamlit from thinking this is LaTeX Math
 if net_benefit_per_conversion <= 0:
     st.error(f"⚠️ **Impossible to Break Even:** At this Incident Probability, the incentives (**\${total_incentives_per_converted_home:,.0f}**) cost more than the savings (**\${loss_reduction_per_converted_home:,.0f}**) per home.")
 else:
@@ -124,7 +123,9 @@ else:
     if breakeven_pct > 100:
         st.warning(f"⚠️ **Impossible to Break Even:** You would need over 100% conversion ({breakeven_pct:.1f}%) to cover the base fees.")
     else:
-        st.info(f"🎯 **Breakeven Insight:** For these inputs, if Faura converts **{breakeven_pct:.1f}%** of homes, the program will pay for itself in reduced expected losses.")
+        # UPDATED INSIGHT TEXT
+        st.info(f"🎯 **Breakeven Insight:** Reducing damage from {mdr_unmitigated*100:.0f}% to {mdr_mitigated*100:.0f}% saves **\${loss_reduction_per_converted_home:,.0f}** per converted home. To cover program fees, you need **{breakeven_pct:.1f}%** conversion.")
+
 
 # --- CALCULATION LOGIC ---
 def calculate_metrics():
@@ -188,8 +189,6 @@ delta = metrics['faura_profit'] - metrics['sq_profit']
 text_color = "green" if delta > 0 else "red"
 sign = "+" if delta > 0 else ""
 
-# Add Annotation above the 'With Faura' bar
-# If y_values are 0 (start of sliders), handle gracefully
 max_y = max(y_values) if max(y_values) > 0 else 1000 
 
 fig.add_annotation(
@@ -237,10 +236,12 @@ with col_left:
     * **Incentives:** \${total_incentives:,.0f} (Only paid for the {conversion_rate*100:.0f}% who convert)
     """)
     
+    # st.latex is safe because it EXPECTS math, but standard text needs escapes
     st.latex(rf'''
         \${faura_cost:,.0f} + (\${total_incentives:,.0f} \times {conversion_rate*100:.0f}\%) = \boxed{{\textbf{{\${avg_prog_cost:,.0f}}}}}
     ''')
     
+    # Added backslashes to dollar signs here
     st.info(f"👉 **Hurdle Rate:** You spend **\${avg_prog_cost:,.0f}** per home to run this.")
 
 with col_right:
@@ -256,6 +257,7 @@ with col_right:
     result_color = "green" if net_result > 0 else "red"
     result_word = "PROFIT" if net_result > 0 else "LOSS"
     
+    # Added backslashes to dollar signs here
     st.markdown(f"""
     **Result:** At this risk level, you save **\${weighted_savings:,.0f}** per home (weighted).
     
