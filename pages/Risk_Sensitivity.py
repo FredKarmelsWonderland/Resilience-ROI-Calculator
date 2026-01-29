@@ -128,9 +128,9 @@ else:
     else:
         # UPDATED INSIGHT TEXT
         st.info(
-            f"🎯 For every single home that converts, reducing MDR from {mdr_unmitigated*100:.0f}% to {mdr_mitigated*100:.0f}% **avoids \${loss_reduction_per_converted_home:,.0f} in expected losses.**\n\n"
+            f"For every single home that converts, reducing MDR from {mdr_unmitigated*100:.0f}% to {mdr_mitigated*100:.0f}% **avoids \${loss_reduction_per_converted_home:,.0f} in expected losses.**\n\n"
             f"**Total Portfolio Impact:** At {conversion_rate*100:.0f}% conversion, you avoid **\${total_portfolio_savings:,.0f}** in losses across the entire book.\n\n"
-            f"**Breakeven Insight:**To cover program fees, you need a **{breakeven_pct:.1f}%** conversion rate."
+            f"🎯 **Breakeven Insight:** To cover program fees, you need a **{breakeven_pct:.1f}%** conversion rate."
         )
 
 
