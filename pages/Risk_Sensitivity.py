@@ -27,9 +27,10 @@ if not check_password():
 
 
 # --- PAGE CONFIGURATION ---
-st.set_page_config(page_title="Program Sensitivity Analysis", layout="wide")
+st.set_page_config(page_title="See profitability breakeven", layout="wide")
 
 st.title("See profitability breakeven")
+st.markdown("### Adjust Risk & Program Performance")
 
 # --- HELPER FUNCTION FOR CURRENCY INPUTS ---
 def currency_input(label, default_value, tooltip=None):
@@ -61,7 +62,7 @@ premium_discount = currency_input("Premium Discount", 100)
 
 
 # --- MAIN PAGE SLIDERS ---
-st.markdown("### Adjust Risk & Program Performance")
+# All set to value=0.0 as requested
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -69,7 +70,7 @@ with col1:
         "Incident Probability (%)", 
         min_value=0.00, 
         max_value=5.00, 
-        value=1.00, 
+        value=1.00, # Kept slightly above 0 so chart isn't empty on load, change to 0.0 if preferred
         step=0.01,
         format="%.2f%%"
     )
@@ -109,15 +110,12 @@ with col4:
     conversion_rate = conversion_input / 100
 
 # --- BREAKEVEN ANALYSIS (DYNAMIC TEXT) ---
-# Formula: Cost_Base = (Loss_Savings - Incentives) * Breakeven_Rate
-# Breakeven_Rate = Cost_Base / (Loss_Savings - Incentives)
-
 loss_reduction_per_converted_home = (avg_tiv * current_Incident_prob * mdr_unmitigated) - (avg_tiv * current_Incident_prob * mdr_mitigated)
 total_incentives_per_converted_home = gift_card + premium_discount
 net_benefit_per_conversion = loss_reduction_per_converted_home - total_incentives_per_converted_home
 
 if net_benefit_per_conversion <= 0:
-    st.error(f"⚠️ **Impossible to Break Even:** At this risk level, the incentives (${total_incentives_per_converted_home:,.0f}) cost more than the savings (${loss_reduction_per_converted_home:,.0f}) per home.")
+    st.error(f"⚠️ **Impossible to Break Even:** At this Incident Probability, the incentives (${total_incentives_per_converted_home:,.0f}) cost more than the savings (${loss_reduction_per_converted_home:,.0f}) per home.")
 else:
     breakeven_rate = faura_cost / net_benefit_per_conversion
     breakeven_pct = breakeven_rate * 100
@@ -191,7 +189,9 @@ text_color = "green" if delta > 0 else "red"
 sign = "+" if delta > 0 else ""
 
 # Add Annotation above the 'With Faura' bar
-max_y = max(y_values)
+# If y_values are 0 (start of sliders), handle gracefully
+max_y = max(y_values) if max(y_values) > 0 else 1000 
+
 fig.add_annotation(
     x=1, # Index of 'With Faura'
     y=metrics['faura_profit'],
