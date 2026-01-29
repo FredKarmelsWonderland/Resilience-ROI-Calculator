@@ -113,9 +113,12 @@ loss_reduction_per_converted_home = (avg_tiv * current_Incident_prob * mdr_unmit
 total_incentives_per_converted_home = gift_card + premium_discount
 net_benefit_per_conversion = loss_reduction_per_converted_home - total_incentives_per_converted_home
 
+# Calculate Total Portfolio Savings for display
+total_portfolio_savings = loss_reduction_per_converted_home * n_homes * conversion_rate
+
 # Used backslash-dollar sign (\$) to prevent Streamlit from thinking this is LaTeX Math
 if net_benefit_per_conversion <= 0:
-    st.error(f"⚠️ **Impossible to Break Even:** At this Incident Probability, the incentives (**\${total_incentives_per_converted_home:,.0f}**) cost more than the savings (**\${loss_reduction_per_converted_home:,.0f}**) per home.")
+    st.error(f"⚠️ **Impossible to Break Even:** At this Incident Probability, the incentives (**\${total_incentives_per_converted_home:,.0f}**) cost more than the avoided losses (**\${loss_reduction_per_converted_home:,.0f}**) per home.")
 else:
     breakeven_rate = faura_cost / net_benefit_per_conversion
     breakeven_pct = breakeven_rate * 100
@@ -124,7 +127,11 @@ else:
         st.warning(f"⚠️ **Impossible to Break Even:** You would need over 100% conversion ({breakeven_pct:.1f}%) to cover the base fees.")
     else:
         # UPDATED INSIGHT TEXT
-        st.info(f"🎯 **Breakeven Insight:** Reducing damage from {mdr_unmitigated*100:.0f}% to {mdr_mitigated*100:.0f}% saves **\${loss_reduction_per_converted_home:,.0f}** per converted home. To cover program fees, you need **{breakeven_pct:.1f}%** conversion.")
+        st.info(
+            f"🎯 **Breakeven Insight:** Reducing damage from {mdr_unmitigated*100:.0f}% to {mdr_mitigated*100:.0f}% **avoids \${loss_reduction_per_converted_home:,.0f} in expected losses** for every single home that converts.\n\n"
+            f"**Total Portfolio Impact:** At {conversion_rate*100:.0f}% conversion, you avoid **\${total_portfolio_savings:,.0f}** in losses across the entire book.\n\n"
+            f"To cover program fees, you need a **{breakeven_pct:.1f}%** conversion rate."
+        )
 
 
 # --- CALCULATION LOGIC ---
@@ -245,7 +252,7 @@ with col_left:
     st.info(f"👉 **Hurdle Rate:** You spend **\${avg_prog_cost:,.0f}** per home to run this.")
 
 with col_right:
-    st.markdown("### 2. Savings Generated")
+    st.markdown("### 2. Expected Loss Avoidance")
     st.markdown(f"""
     We compare that cost against the **Expected Loss Reduction**:
     
@@ -259,7 +266,7 @@ with col_right:
     
     # Added backslashes to dollar signs here
     st.markdown(f"""
-    **Result:** At this risk level, you save **\${weighted_savings:,.0f}** per home (weighted).
+    **Result:** At this risk level, you **avoid \${weighted_savings:,.0f}** in expected losses per home (averaged across the portfolio).
     
-    Since **\${weighted_savings:,.0f}** (Savings) - **\${avg_prog_cost:,.0f}** (Cost) = :{result_color}[**\${net_result:,.0f}**], the program generates a **{result_word}**.
+    Since **\${weighted_savings:,.0f}** (Avoided Loss) - **\${avg_prog_cost:,.0f}** (Cost) = :{result_color}[**\${net_result:,.0f}**], the program generates a **{result_word}**.
     """)
