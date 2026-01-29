@@ -62,7 +62,7 @@ premium_discount = currency_input("Premium Discount", 100)
 
 
 # --- MAIN PAGE SLIDERS ---
-# All set to value=0.0 as requested
+# All ranges start at 0.0. Defaults set to sensible starting points.
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -70,7 +70,7 @@ with col1:
         "Incident Probability (%)", 
         min_value=0.00, 
         max_value=5.00, 
-        value=1.00, # Kept slightly above 0 so chart isn't empty on load
+        value=1.00, 
         step=0.01,
         format="%.2f%%"
     )
@@ -115,8 +115,8 @@ total_incentives_per_converted_home = gift_card + premium_discount
 net_benefit_per_conversion = loss_reduction_per_converted_home - total_incentives_per_converted_home
 
 if net_benefit_per_conversion <= 0:
-    # Fixed string formatting with extra spaces
-    st.error(f"⚠️ **Impossible to Break Even:** At this Incident Probability, the incentives (**${total_incentives_per_converted_home:,.0f}**) cost more than the savings (**${loss_reduction_per_converted_home:,.0f}**) per home.")
+    # Removed bolding on numbers to fix spacing issues
+    st.error(f"⚠️ **Impossible to Break Even:** At this Incident Probability, the incentives (${total_incentives_per_converted_home:,.0f}) cost more than the savings (${loss_reduction_per_converted_home:,.0f}) per home.")
 else:
     breakeven_rate = faura_cost / net_benefit_per_conversion
     breakeven_pct = breakeven_rate * 100
