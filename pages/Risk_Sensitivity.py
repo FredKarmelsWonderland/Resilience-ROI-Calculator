@@ -70,7 +70,7 @@ with col1:
         "Incident Probability (%)", 
         min_value=0.00, 
         max_value=5.00, 
-        value=1.00, # Kept slightly above 0 so chart isn't empty on load, change to 0.0 if preferred
+        value=1.00, # Kept slightly above 0 so chart isn't empty on load
         step=0.01,
         format="%.2f%%"
     )
@@ -115,7 +115,8 @@ total_incentives_per_converted_home = gift_card + premium_discount
 net_benefit_per_conversion = loss_reduction_per_converted_home - total_incentives_per_converted_home
 
 if net_benefit_per_conversion <= 0:
-    st.error(f"⚠️ **Impossible to Break Even:** At this Incident Probability, the incentives (${total_incentives_per_converted_home:,.0f}) cost more than the savings (${loss_reduction_per_converted_home:,.0f}) per home.")
+    # Fixed string formatting with extra spaces
+    st.error(f"⚠️ **Impossible to Break Even:** At this Incident Probability, the incentives (**${total_incentives_per_converted_home:,.0f}**) cost more than the savings (**${loss_reduction_per_converted_home:,.0f}**) per home.")
 else:
     breakeven_rate = faura_cost / net_benefit_per_conversion
     breakeven_pct = breakeven_rate * 100
