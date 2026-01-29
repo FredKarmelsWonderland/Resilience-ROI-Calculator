@@ -27,9 +27,9 @@ if not check_password():
 
 
 # --- PAGE CONFIGURATION ---
-st.set_page_config(page_title="Faura Sensitivity Viewer", layout="wide")
+st.set_page_config(page_title="Program Sensitivity Analysis", layout="wide")
 
-st.title("🔥 Profitability dynamics")
+st.title("See profitability breakeven")
 
 # --- HELPER FUNCTION FOR CURRENCY INPUTS ---
 def currency_input(label, default_value, tooltip=None):
@@ -55,7 +55,6 @@ expense_ratio = expense_ratio_input / 100
 
 st.sidebar.markdown("---")
 st.sidebar.header("2. Faura Program Costs")
-# Note: Conversion rate moved to main sliders
 faura_cost = currency_input("Faura Cost per Home", 30)
 gift_card = currency_input("Gift Card Incentive", 50)
 premium_discount = currency_input("Premium Discount", 100)
@@ -68,7 +67,7 @@ col1, col2, col3, col4 = st.columns(4)
 with col1:
     incident_prob_input = st.slider(
         "Incident Probability (%)", 
-        min_value=0.01, 
+        min_value=0.00, 
         max_value=5.00, 
         value=1.00, 
         step=0.01,
@@ -79,7 +78,7 @@ with col1:
 with col2:
     mdr_unmitigated_input = st.slider(
         "MDR Unmitigated (%)", 
-        min_value=10.0, 
+        min_value=0.0, 
         max_value=100.0, 
         value=80.0, 
         step=1.0,
@@ -90,7 +89,7 @@ with col2:
 with col3:
     mdr_mitigated_input = st.slider(
         "MDR Mitigated (%)", 
-        min_value=10.0, 
+        min_value=0.0, 
         max_value=100.0, 
         value=30.0, 
         step=1.0,
@@ -108,6 +107,25 @@ with col4:
         format="%.0f%%"
     )
     conversion_rate = conversion_input / 100
+
+# --- BREAKEVEN ANALYSIS (DYNAMIC TEXT) ---
+# Formula: Cost_Base = (Loss_Savings - Incentives) * Breakeven_Rate
+# Breakeven_Rate = Cost_Base / (Loss_Savings - Incentives)
+
+loss_reduction_per_converted_home = (avg_tiv * current_Incident_prob * mdr_unmitigated) - (avg_tiv * current_Incident_prob * mdr_mitigated)
+total_incentives_per_converted_home = gift_card + premium_discount
+net_benefit_per_conversion = loss_reduction_per_converted_home - total_incentives_per_converted_home
+
+if net_benefit_per_conversion <= 0:
+    st.error(f"⚠️ **Impossible to Break Even:** At this risk level, the incentives (${total_incentives_per_converted_home:,.0f}) cost more than the savings (${loss_reduction_per_converted_home:,.0f}) per home.")
+else:
+    breakeven_rate = faura_cost / net_benefit_per_conversion
+    breakeven_pct = breakeven_rate * 100
+    
+    if breakeven_pct > 100:
+        st.warning(f"⚠️ **Impossible to Break Even:** You would need over 100% conversion ({breakeven_pct:.1f}%) to cover the base fees.")
+    else:
+        st.info(f"🎯 **Breakeven Insight:** For these inputs, if Faura converts **{breakeven_pct:.1f}%** of homes, the program will pay for itself in reduced expected losses.")
 
 
 # --- CALCULATION LOGIC ---
@@ -172,7 +190,7 @@ delta = metrics['faura_profit'] - metrics['sq_profit']
 text_color = "green" if delta > 0 else "red"
 sign = "+" if delta > 0 else ""
 
-# Add Annotation above the 'With Faura' bar (or centered)
+# Add Annotation above the 'With Faura' bar
 max_y = max(y_values)
 fig.add_annotation(
     x=1, # Index of 'With Faura'
