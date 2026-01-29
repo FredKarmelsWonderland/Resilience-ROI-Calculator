@@ -114,9 +114,9 @@ loss_reduction_per_converted_home = (avg_tiv * current_Incident_prob * mdr_unmit
 total_incentives_per_converted_home = gift_card + premium_discount
 net_benefit_per_conversion = loss_reduction_per_converted_home - total_incentives_per_converted_home
 
+# We use backslash-dollar sign (\$) to prevent Streamlit from thinking this is LaTeX Math
 if net_benefit_per_conversion <= 0:
-    # Removed bolding on numbers to fix spacing issues
-    st.error(f"⚠️ **Impossible to Break Even:** At this Incident Probability, the incentives (${total_incentives_per_converted_home:,.0f}) cost more than the savings (${loss_reduction_per_converted_home:,.0f}) per home.")
+    st.error(f"⚠️ **Impossible to Break Even:** At this Incident Probability, the incentives (**\${total_incentives_per_converted_home:,.0f}**) cost more than the savings (**\${loss_reduction_per_converted_home:,.0f}**) per home.")
 else:
     breakeven_rate = faura_cost / net_benefit_per_conversion
     breakeven_pct = breakeven_rate * 100
@@ -125,7 +125,6 @@ else:
         st.warning(f"⚠️ **Impossible to Break Even:** You would need over 100% conversion ({breakeven_pct:.1f}%) to cover the base fees.")
     else:
         st.info(f"🎯 **Breakeven Insight:** For these inputs, if Faura converts **{breakeven_pct:.1f}%** of homes, the program will pay for itself in reduced expected losses.")
-
 
 # --- CALCULATION LOGIC ---
 def calculate_metrics():
