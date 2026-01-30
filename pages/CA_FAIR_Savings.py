@@ -1,28 +1,33 @@
 import streamlit as st
+# --- PAGE CONFIGURATION ---
+st.set_page_config(page_title="FAIR Plan Discount Calculator", layout="wide")
 
-# --- PASSWORD PROTECTION ---
+# --- 2. STANDARDIZED LOGIN BLOCK (Copy this to all pages) ---
 def check_password():
     """Returns `True` if the user had the correct password."""
-    def password_entered():
-        if st.session_state["password"] == "Faura2026":
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]
-        else:
-            st.session_state["password_correct"] = False
-
-    if "password_correct" not in st.session_state:
-        st.session_state["password_correct"] = False
-
-    if not st.session_state["password_correct"]:
-        st.text_input("Please enter the Sales Access Password", type="password", on_change=password_entered, key="password")
-        return False
-    else:
+    # Check if the password is already correct in the session
+    if st.session_state.get("password_correct", False):
         return True
 
-if not check_password():
-    st.stop()
+    # Show input in the MAIN AREA (not sidebar)
+    st.title("🔒 Faura Portfolio Map")
+    
+    with st.form("login_form"):
+        st.write("Please enter the access code to view the map.")
+        password = st.text_input("Password", type="password")
+        submitted = st.form_submit_button("Log In")
+        
+        if submitted:
+            if password == "Faura2026":
+                st.session_state["password_correct"] = True
+                st.rerun()
+            else:
+                st.error("😕 Password incorrect")
+    return False
 
-st.set_page_config(page_title="FAIR Plan Discount Calculator", layout="wide")
+if not check_password():
+    st.stop()  # Stop execution if password is wrong
+
 
 st.title("🏛️ California FAIR Plan: Discount Calculator")
 st.markdown("""

@@ -5,32 +5,33 @@ import pydeck as pdk
 # --- 1. PAGE CONFIG (MUST BE FIRST) ---
 st.set_page_config(layout="wide", page_title="Portfolio Savings Map")
 
-# --- 2. PASSWORD PROTECTION ---
+# --- 2. STANDARDIZED LOGIN BLOCK (Copy this to all pages) ---
 def check_password():
     """Returns `True` if the user had the correct password."""
     # Check if the password is already correct in the session
     if st.session_state.get("password_correct", False):
         return True
 
-    # Show input if not correct
-    st.sidebar.header("🔒 Login")
-    # Using a key ensures the text remains when the button is pressed
-    password = st.sidebar.text_input("Enter Password", type="password", key="password_input")
+    # Show input in the MAIN AREA (not sidebar)
+    st.title("🔒 Faura Portfolio Map")
     
-    if st.sidebar.button("Log In"):
-        if password == "Faura2026":  
-            st.session_state["password_correct"] = True
-            st.rerun()
-        else:
-            st.sidebar.error("😕 Password incorrect")
+    with st.form("login_form"):
+        st.write("Please enter the access code to view the map.")
+        password = st.text_input("Password", type="password")
+        submitted = st.form_submit_button("Log In")
+        
+        if submitted:
+            if password == "Faura2026":
+                st.session_state["password_correct"] = True
+                st.rerun()
+            else:
+                st.error("😕 Password incorrect")
     return False
 
 if not check_password():
-    st.title("🔒 Access Restricted")
-    st.warning("Please log in via the sidebar to view the Portfolio Map.")
     st.stop()  # Stop execution if password is wrong
 
-# --- 3. MAIN APP CONTENT ---
+# --- 3. MAIN APP CONTENT (Only runs if logged in) ---
 st.title("🏡 Wildfire Resilience Portfolio Map")
 
 # --- 4. LOAD DATA ---
@@ -51,14 +52,14 @@ def load_data():
     }
     df = df.rename(columns=column_map)
     
-    # Cleaning: Convert currency strings to numbers
+    # Cleaning
     cols_to_clean = ['average_prem', 'total_discount', 'lat', 'lon']
     for col in cols_to_clean:
         if col in df.columns and df[col].dtype == 'object':
              df[col] = df[col].astype(str).str.replace('$', '').str.replace(',', '')
              df[col] = pd.to_numeric(df[col], errors='coerce')
     
-    # Create short text label ($1.2k)
+    # Labels
     df['label'] = df['total_discount'].apply(lambda x: f"${x/1000:.1f}k" if x >= 1000 else f"${x:.0f}")
              
     return df.dropna(subset=['lat', 'lon'])
@@ -76,7 +77,7 @@ filtered_df = df[df['total_discount'] >= min_savings]
 
 # --- 6. MAP CONFIGURATION ---
 
-# A. Scatterplot Layer (The Dots)
+# A. Scatterplot Layer
 filtered_df['color'] = filtered_df['total_discount'].apply(
     lambda x: [60, 179, 113, 200] if x >= 1000 else [30, 144, 255, 180]
 )
@@ -96,7 +97,7 @@ scatter_layer = pdk.Layer(
     radius_max_pixels=40,
 )
 
-# B. Text Layer (The Labels)
+# B. Text Layer
 text_layer = pdk.Layer(
     "TextLayer",
     filtered_df,
@@ -110,7 +111,7 @@ text_layer = pdk.Layer(
     pixel_offset=[0, -12] 
 )
 
-# C. AUTO-CENTERING LOGIC
+# C. AUTO-CENTERING
 if not filtered_df.empty:
     mid_lat = filtered_df['lat'].median()
     mid_lon = filtered_df['lon'].median()
@@ -135,7 +136,7 @@ view_state = pdk.ViewState(
     pitch=0,
 )
 
-# D. The Tooltip
+# D. Tooltip
 tooltip = {
     "html": """
         <div style="font-family: sans-serif; padding: 8px; color: white; background-color: #1E1E1E; border-radius: 4px;">
