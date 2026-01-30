@@ -11,7 +11,7 @@ st.title("🏡 Wildfire Resilience Portfolio Map")
 def load_data():
     # ADJUST FILE PATH IF NECESSARY
     try:
-        df = pd.read_csv("page/savings_data.csv")
+        df = pd.read_csv("pages/savings_data.csv")
     except FileNotFoundError:
         return pd.DataFrame() # Return empty if not found to handle gracefully
 
