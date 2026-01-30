@@ -2,15 +2,37 @@ import streamlit as st
 import pandas as pd
 import pydeck as pdk
 
+# --- 1. PASSWORD PROTECTION ---
+def check_password():
+    """Returns `True` if the user had the correct password."""
+    # Check if the password is already correct in the session
+    if st.session_state.get("password_correct", False):
+        return True
+
+    # Show input if not correct
+    st.sidebar.header("🔒 Login")
+    password = st.sidebar.text_input("Enter Password", type="password")
+    
+    if st.button("Log In"):
+        if password == "Faura2026":  # Using your previously mentioned password
+            st.session_state["password_correct"] = True
+            st.rerun()
+        else:
+            st.error("😕 Password incorrect")
+    return False
+
+if not check_password():
+    st.stop()  # Stop execution if password is wrong
+
 # --- PAGE CONFIG ---
 st.set_page_config(layout="wide", page_title="Portfolio Savings Map")
 st.title("🏡 Wildfire Resilience Portfolio Map")
 
-# --- 1. LOAD DATA ---
+# --- 2. LOAD DATA ---
 @st.cache_data
 def load_data():
     try:
-        # Load CSV (Ensure 'Discount_Commentary' is in your CSV from the R script)
+        # Load CSV from the pages folder
         df = pd.read_csv("pages/savings_data.csv")
     except FileNotFoundError:
         return pd.DataFrame()
@@ -19,8 +41,9 @@ def load_data():
     column_map = {
         'average_prem': 'average_prem',
         'total_discount': 'total_discount',
-        'Discount_Commentary': 'Discount_Commentary', # Ensure this matches your CSV header
-        'address': 'address'
+        'Discount_Commentary': 'Discount_Commentary',
+        'address': 'address',
+        'url': 'url' # Ensure your CSV has this column
     }
     df = df.rename(columns=column_map)
     
@@ -31,7 +54,7 @@ def load_data():
              df[col] = df[col].astype(str).str.replace('$', '').str.replace(',', '')
              df[col] = pd.to_numeric(df[col], errors='coerce')
     
-    # Create a short text label for the map (e.g. "$1,200" -> "$1.2k")
+    # Create a short text label for the map (e.g. "$1.2k")
     df['label'] = df['total_discount'].apply(lambda x: f"${x/1000:.1f}k" if x >= 1000 else f"${x:.0f}")
              
     return df.dropna(subset=['lat', 'lon'])
@@ -42,19 +65,17 @@ if df.empty:
     st.error("⚠️ Could not find data. Check `pages/savings_data.csv`.")
     st.stop()
 
-# --- 2. SIDEBAR FILTERS ---
+# --- 3. SIDEBAR FILTERS ---
 st.sidebar.header("Filter Map")
 min_savings = st.sidebar.slider("Min. Potential Savings", 0, int(df['total_discount'].max()), 0, step=100)
 filtered_df = df[df['total_discount'] >= min_savings]
 
-# --- 3. MAP CONFIGURATION ---
+# --- 4. MAP CONFIGURATION ---
 
 # A. Scatterplot Layer (The Dots)
-# Green dots for high savings, Blue for low
 filtered_df['color'] = filtered_df['total_discount'].apply(
     lambda x: [60, 179, 113, 200] if x >= 1000 else [30, 144, 255, 180]
 )
-# Size based on savings
 filtered_df['radius'] = filtered_df['total_discount'].apply(lambda x: 20 + (x / 10))
 
 scatter_layer = pdk.Layer(
@@ -67,23 +88,22 @@ scatter_layer = pdk.Layer(
     stroked=True,
     filled=True,
     line_width_min_pixels=1,
-    radius_min_pixels=6,   # Minimum size so they don't disappear
-    radius_max_pixels=30,  # Max size so they don't cover the map
+    radius_min_pixels=6,
+    radius_max_pixels=30,
 )
 
-# B. Text Layer (The "Redfin" Labels)
-# This puts the "$1.5k" text directly above the dot
+# B. Text Layer (The Labels)
 text_layer = pdk.Layer(
     "TextLayer",
     filtered_df,
     get_position=["lon", "lat"],
     get_text="label",
-    get_color=[0, 0, 0, 200], # Black text
+    get_color=[0, 0, 0, 200],
     get_size=16,
     get_angle=0,
     get_text_anchor="middle",
     get_alignment_baseline="bottom",
-    pixel_offset=[0, -10] # Shift text up slightly so it floats above dot
+    pixel_offset=[0, -10]
 )
 
 # C. Map View settings
@@ -94,7 +114,7 @@ view_state = pdk.ViewState(
     pitch=0,
 )
 
-# D. The Tooltip (Popup on Hover)
+# D. The Tooltip
 tooltip = {
     "html": """
         <div style="font-family: sans-serif; padding: 8px; color: white; background-color: #1E1E1E; border-radius: 4px;">
@@ -106,29 +126,35 @@ tooltip = {
     "style": {"color": "white"}
 }
 
-# --- 4. RENDER MAP ---
-# map_style="roadmap" gives the Google Maps / Redfin look (streets + gray background)
+# --- 5. RENDER MAP (FIXED) ---
+# We use 'pdk.map_styles.CARTO_LIGHT' which is a free "Redfin-style" basemap
+# It does NOT require a Mapbox token.
 st.pydeck_chart(pdk.Deck(
-    map_style="mapbox://styles/mapbox/light-v9", # Clean "Redfin-style" light map
+    map_style=pdk.map_styles.CARTO_LIGHT, 
     initial_view_state=view_state,
-    layers=[scatter_layer, text_layer], # Render both dots and text
+    layers=[scatter_layer, text_layer],
     tooltip=tooltip
 ))
 
-# --- 5. DETAILED DATA TABLE ---
+# --- 6. DETAILED DATA TABLE (FIXED LINKS) ---
 st.markdown("### 📋 Property Savings Details")
 
-# Format columns for display
-display_cols = ['address', 'Discount_Commentary', 'average_prem', 'total_discount']
+display_cols = ['address', 'url', 'Discount_Commentary', 'average_prem', 'total_discount']
 
-# Check if Discount_Commentary exists (in case CSV is old)
-if 'Discount_Commentary' not in filtered_df.columns:
-    filtered_df['Discount_Commentary'] = "No commentary available"
+# Check if columns exist
+for col in ['url', 'Discount_Commentary']:
+    if col not in filtered_df.columns:
+        filtered_df[col] = "N/A"
 
 st.dataframe(
     filtered_df[display_cols].sort_values('total_discount', ascending=False),
     column_config={
         "address": "Property Address",
+        # This turns the 'url' column into a clickable link labeled "View on Redfin"
+        "url": st.column_config.LinkColumn(
+            "Redfin Link",
+            display_text="View on Redfin" 
+        ),
         "Discount_Commentary": st.column_config.TextColumn("Resilience Assessment", width="large"),
         "average_prem": st.column_config.NumberColumn("Avg Premium", format="$%d"),
         "total_discount": st.column_config.NumberColumn("Potential Savings", format="$%d"),
