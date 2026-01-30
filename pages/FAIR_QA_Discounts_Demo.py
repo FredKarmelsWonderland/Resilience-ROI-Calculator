@@ -2,32 +2,38 @@ import streamlit as st
 import pandas as pd
 import pydeck as pdk
 
-# --- PAGE CONFIG ---
+# --- 1. PAGE CONFIG (MUST BE FIRST) ---
 st.set_page_config(layout="wide", page_title="Portfolio Savings Map")
-st.title("🏡 Wildfire Resilience Portfolio Map")
 
-
-# --- 1. PASSWORD PROTECTION ---
+# --- 2. PASSWORD PROTECTION ---
 def check_password():
     """Returns `True` if the user had the correct password."""
+    # Check if the password is already correct in the session
     if st.session_state.get("password_correct", False):
         return True
 
+    # Show input if not correct
     st.sidebar.header("🔒 Login")
-    password = st.sidebar.text_input("Enter Password", type="password")
+    # Using a key ensures the text remains when the button is pressed
+    password = st.sidebar.text_input("Enter Password", type="password", key="password_input")
     
-    if st.button("Log In"):
+    if st.sidebar.button("Log In"):
         if password == "Faura2026":  
             st.session_state["password_correct"] = True
             st.rerun()
         else:
-            st.error("😕 Password incorrect")
+            st.sidebar.error("😕 Password incorrect")
     return False
 
 if not check_password():
-    st.stop() 
+    st.title("🔒 Access Restricted")
+    st.warning("Please log in via the sidebar to view the Portfolio Map.")
+    st.stop()  # Stop execution if password is wrong
 
-# --- 2. LOAD DATA ---
+# --- 3. MAIN APP CONTENT ---
+st.title("🏡 Wildfire Resilience Portfolio Map")
+
+# --- 4. LOAD DATA ---
 @st.cache_data
 def load_data():
     try:
@@ -63,18 +69,17 @@ if df.empty:
     st.error("⚠️ Could not find data. Check `pages/savings_data.csv`.")
     st.stop()
 
-# --- 3. SIDEBAR FILTERS ---
+# --- 5. SIDEBAR FILTERS ---
 st.sidebar.header("Filter Map")
 min_savings = st.sidebar.slider("Min. Potential Savings", 0, int(df['total_discount'].max()), 0, step=100)
 filtered_df = df[df['total_discount'] >= min_savings]
 
-# --- 4. MAP CONFIGURATION ---
+# --- 6. MAP CONFIGURATION ---
 
 # A. Scatterplot Layer (The Dots)
 filtered_df['color'] = filtered_df['total_discount'].apply(
     lambda x: [60, 179, 113, 200] if x >= 1000 else [30, 144, 255, 180]
 )
-# Dynamic size: bigger savings = bigger dots
 filtered_df['radius'] = filtered_df['total_discount'].apply(lambda x: 25 + (x / 20))
 
 scatter_layer = pdk.Layer(
@@ -105,19 +110,15 @@ text_layer = pdk.Layer(
     pixel_offset=[0, -12] 
 )
 
-# C. AUTO-CENTERING LOGIC (The Fix) ------------------------
+# C. AUTO-CENTERING LOGIC
 if not filtered_df.empty:
-    # Use Median to find the center (avoids outliers throwing off the map)
     mid_lat = filtered_df['lat'].median()
     mid_lon = filtered_df['lon'].median()
     
-    # Simple Auto-Zoom: Check the spread of data
     lat_spread = filtered_df['lat'].max() - filtered_df['lat'].min()
     lon_spread = filtered_df['lon'].max() - filtered_df['lon'].min()
     max_spread = max(lat_spread, lon_spread)
 
-    # If spread is small (< 0.05 degrees), zoom in close (13). 
-    # If spread is large (> 0.2 degrees), zoom out (10).
     if max_spread < 0.05:
         zoom_level = 13
     elif max_spread < 0.2:
@@ -125,7 +126,6 @@ if not filtered_df.empty:
     else:
         zoom_level = 9
 else:
-    # Default fallback (Sunnyvale-ish)
     mid_lat, mid_lon, zoom_level = 37.3688, -122.0363, 11
 
 view_state = pdk.ViewState(
@@ -134,7 +134,6 @@ view_state = pdk.ViewState(
     zoom=zoom_level,
     pitch=0,
 )
-# ----------------------------------------------------------
 
 # D. The Tooltip
 tooltip = {
@@ -148,8 +147,7 @@ tooltip = {
     "style": {"color": "white"}
 }
 
-# --- 5. RENDER MAP ---
-# Using CARTO_LIGHT for the clean "Redfin" look without API keys
+# --- 7. RENDER MAP ---
 st.pydeck_chart(pdk.Deck(
     map_style=pdk.map_styles.CARTO_LIGHT,
     initial_view_state=view_state,
@@ -157,12 +155,11 @@ st.pydeck_chart(pdk.Deck(
     tooltip=tooltip
 ))
 
-# --- 6. DETAILED DATA TABLE ---
+# --- 8. DETAILED DATA TABLE ---
 st.markdown("### 📋 Property Savings Details")
 
 display_cols = ['address', 'url', 'Discount_Commentary', 'average_prem', 'total_discount']
 
-# Ensure columns exist
 for col in ['url', 'Discount_Commentary']:
     if col not in filtered_df.columns:
         filtered_df[col] = "N/A"
