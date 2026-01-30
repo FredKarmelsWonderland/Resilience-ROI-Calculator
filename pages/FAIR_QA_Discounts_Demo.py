@@ -2,6 +2,11 @@ import streamlit as st
 import pandas as pd
 import pydeck as pdk
 
+# --- PAGE CONFIG ---
+st.set_page_config(layout="wide", page_title="Portfolio Savings Map")
+st.title("🏡 Wildfire Resilience Portfolio Map")
+
+
 # --- 1. PASSWORD PROTECTION ---
 def check_password():
     """Returns `True` if the user had the correct password."""
@@ -21,10 +26,6 @@ def check_password():
 
 if not check_password():
     st.stop() 
-
-# --- PAGE CONFIG ---
-st.set_page_config(layout="wide", page_title="Portfolio Savings Map")
-st.title("🏡 Wildfire Resilience Portfolio Map")
 
 # --- 2. LOAD DATA ---
 @st.cache_data
