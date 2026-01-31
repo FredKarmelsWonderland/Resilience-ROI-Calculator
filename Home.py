@@ -9,24 +9,22 @@ st.set_page_config(page_title="Faura ROI Calculator", layout="wide")
 # --- CUSTOM CSS FOR DOWNLOAD BUTTON ---
 st.markdown("""
 <style>
-    /* Target the download button */
     div[data-testid="stDownloadButton"] > button {
-        background-color: #007bff; /* Bright Blue */
-        color: white;              /* White Text */
+        background-color: #007bff; 
+        color: white;              
         border: none;
         border-radius: 8px;
-        height: auto;              /* Allow height to grow */
-        min-height: 60px;          /* Make it taller */
-        width: 100%;               /* Fill the column width */
-        white-space: normal;       /* Allow text to wrap/break lines */
+        height: auto;              
+        min-height: 60px;          
+        width: 100%;               
+        white-space: normal;       
         padding: 10px;
         font-weight: bold;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         transition: all 0.3s ease;
     }
-    /* Hover effect */
     div[data-testid="stDownloadButton"] > button:hover {
-        background-color: #0056b3; /* Darker Blue */
+        background-color: #0056b3; 
         color: white;
         box-shadow: 0 6px 8px rgba(0,0,0,0.2);
         transform: translateY(-2px);
@@ -111,6 +109,26 @@ def create_pdf_report(client_name, metrics, inputs):
     profit_delta = metrics['faura_profit'] - metrics['sq_profit']
     claims_saved = metrics['sq_losses'] - metrics['faura_losses']
     
+    # Combined Ratio Logic
+    pdf.set_font("Helvetica", size=12)
+    pdf.cell(95, 10, "Combined Ratio Impact:", border=0)
+    
+    # Logic: Lower ratio is better
+    cr_diff = metrics['sq_combined_ratio'] - metrics['faura_combined_ratio']
+    # e.g. SQ=110%, Faura=90% -> diff = 20% point improvement
+    
+    pdf.set_font("Helvetica", 'B', 12)
+    # If ratio improved (Faura < SQ), make it green
+    if metrics['faura_combined_ratio'] < metrics['sq_combined_ratio']:
+        pdf.set_text_color(0, 128, 0)
+        arrow = "Improvement"
+    else:
+        pdf.set_text_color(200, 0, 0)
+        arrow = "Worsened"
+        
+    pdf.cell(95, 10, f"{metrics['sq_combined_ratio']*100:.1f}% -> {metrics['faura_combined_ratio']*100:.1f}%", border=0, align='R', new_x="LMARGIN", new_y="NEXT")
+    pdf.set_text_color(0, 0, 0) # Reset
+    
     pdf.set_font("Helvetica", size=12)
     pdf.cell(95, 10, "Net Profit Increase (Delta):", border=0)
     pdf.set_font("Helvetica", 'B', 12)
@@ -125,12 +143,8 @@ def create_pdf_report(client_name, metrics, inputs):
         pdf.set_text_color(0, 0, 0)
 
     pdf.cell(95, 10, f"{sign}${profit_delta:,.0f}", border=0, align='R', new_x="LMARGIN", new_y="NEXT")
-    
     pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Helvetica", size=12)
-    pdf.cell(95, 10, "Total Claims Avoided:", border=0)
-    pdf.set_font("Helvetica", 'B', 12)
-    pdf.cell(95, 10, f"${claims_saved:,.0f}", border=0, align='R', new_x="LMARGIN", new_y="NEXT")
+
     pdf.ln(5)
 
     # --- SECTION 3: FINANCIAL BREAKDOWN ---
@@ -202,8 +216,9 @@ def currency_input(label, default_value, tooltip=None):
 
 st.sidebar.header("1. Portfolio Inputs")
 n_homes = st.sidebar.number_input("Number of Homes", value=100, step=1)
-avg_premium = currency_input("Avg Premium per Home", 10000)
+avg_premium = currency_input("Avg Premium per Home", 4200)
 avg_tiv = currency_input("Avg TIV per Home", 1000000)
+
 expense_ratio_input = st.sidebar.number_input("Expense Ratio (%)", value=15.0, step=0.1, format="%.2f")
 expense_ratio = expense_ratio_input / 100
 
@@ -229,6 +244,9 @@ def calculate_metrics():
     total_uw_expense = total_premium * expense_ratio
     sq_losses = n_homes * avg_tiv * incident_prob * mdr_unmitigated
     sq_profit = total_premium - (total_uw_expense + sq_losses)
+    
+    # Combined Ratio (SQ) = (Losses + Expenses) / Premium
+    sq_combined_ratio = (sq_losses + total_uw_expense) / total_premium if total_premium > 0 else 0
 
     n_converted = n_homes * conversion_rate
     n_unconverted = n_homes * (1 - conversion_rate)
@@ -242,16 +260,23 @@ def calculate_metrics():
     
     faura_total_cost = total_uw_expense + faura_total_losses + total_faura_fee + total_gift_cards + total_discounts
     faura_profit = total_premium - faura_total_cost
+    
+    # Combined Ratio (Faura) = (Losses + All Expenses) / Premium
+    # Note: Program Fees + Incentives are treated as Expenses here
+    faura_all_expenses = total_uw_expense + total_faura_fee + total_gift_cards + total_discounts
+    faura_combined_ratio = (faura_total_losses + faura_all_expenses) / total_premium if total_premium > 0 else 0
 
     return {
         "sq_profit": sq_profit,
         "sq_losses": sq_losses,
         "sq_expenses": total_uw_expense,
+        "sq_combined_ratio": sq_combined_ratio,
         "faura_profit": faura_profit,
         "faura_losses": faura_total_losses,
         "faura_program_cost": total_faura_fee,
         "faura_incentives": total_gift_cards + total_discounts,
         "faura_expenses": total_uw_expense,
+        "faura_combined_ratio": faura_combined_ratio,
         "total_premium": total_premium
     }
 
@@ -275,8 +300,7 @@ with col_btn:
         metrics=metrics,
         inputs=report_inputs
     )
-    # Using \n for line break in the label
-    st.download_button("📥 Download\nReport", data=pdf_bytes, file_name="Faura_Underwriting_Report.pdf", mime="application/pdf", use_container_width=True)
+    st.download_button("📥 Download\nDetailed Report", data=pdf_bytes, file_name="Faura_Underwriting_Report.pdf", mime="application/pdf", use_container_width=True)
 
 
 c1, c2, c3, c4, c5 = st.columns(5)
