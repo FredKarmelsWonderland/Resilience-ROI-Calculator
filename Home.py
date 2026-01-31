@@ -6,6 +6,34 @@ from fpdf import FPDF
 # --- 1. PAGE CONFIGURATION (Must be first) ---
 st.set_page_config(page_title="Faura ROI Calculator", layout="wide")
 
+# --- CUSTOM CSS FOR DOWNLOAD BUTTON ---
+st.markdown("""
+<style>
+    /* Target the download button */
+    div[data-testid="stDownloadButton"] > button {
+        background-color: #007bff; /* Bright Blue */
+        color: white;              /* White Text */
+        border: none;
+        border-radius: 8px;
+        height: auto;              /* Allow height to grow */
+        min-height: 60px;          /* Make it taller */
+        width: 100%;               /* Fill the column width */
+        white-space: normal;       /* Allow text to wrap/break lines */
+        padding: 10px;
+        font-weight: bold;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    /* Hover effect */
+    div[data-testid="stDownloadButton"] > button:hover {
+        background-color: #0056b3; /* Darker Blue */
+        color: white;
+        box-shadow: 0 6px 8px rgba(0,0,0,0.2);
+        transform: translateY(-2px);
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # --- 2. STANDARDIZED LOGIN BLOCK ---
 def check_password():
     """Returns `True` if the user had the correct password."""
@@ -30,11 +58,8 @@ def check_password():
 if not check_password():
     st.stop()
 
-# --- 3. UPGRADED PDF GENERATOR FUNCTION ---
+# --- 3. PDF GENERATOR FUNCTION ---
 def create_pdf_report(client_name, metrics, inputs):
-    """
-    Generates a detailed PDF report including portfolio inputs and full P&L comparison.
-    """
     class PDF(FPDF):
         def header(self):
             self.set_font('Helvetica', 'B', 20)
@@ -63,18 +88,15 @@ def create_pdf_report(client_name, metrics, inputs):
     pdf.cell(0, 8, "  1. Portfolio & Risk Inputs", 0, 1, 'L', fill=True)
     pdf.ln(2)
 
-    # Input Grid
     pdf.set_font("Helvetica", size=10)
     col_width = 45
     row_height = 8
 
-    # Row 1
     pdf.cell(col_width, row_height, f"Homes: {inputs['n_homes']}", border=1)
     pdf.cell(col_width, row_height, f"Avg Premium: ${inputs['avg_premium']:,.0f}", border=1)
     pdf.cell(col_width, row_height, f"Avg TIV: ${inputs['avg_tiv']:,.0f}", border=1)
     pdf.cell(col_width, row_height, f"Incident Prob: {inputs['incident_prob']*100:.1f}%", border=1, new_x="LMARGIN", new_y="NEXT")
     
-    # Row 2
     pdf.cell(col_width, row_height, f"Expense Ratio: {inputs['expense_ratio']*100:.1f}%", border=1)
     pdf.cell(col_width, row_height, f"MDR (Unmit): {inputs['mdr_unmitigated']*100:.0f}%", border=1)
     pdf.cell(col_width, row_height, f"MDR (Mitigated): {inputs['mdr_mitigated']*100:.0f}%", border=1)
@@ -86,7 +108,6 @@ def create_pdf_report(client_name, metrics, inputs):
     pdf.cell(0, 8, "  2. Executive Summary", 0, 1, 'L', fill=True)
     pdf.ln(2)
 
-    # Big "Value Created" Box
     profit_delta = metrics['faura_profit'] - metrics['sq_profit']
     claims_saved = metrics['sq_losses'] - metrics['faura_losses']
     
@@ -94,32 +115,29 @@ def create_pdf_report(client_name, metrics, inputs):
     pdf.cell(95, 10, "Net Profit Increase (Delta):", border=0)
     pdf.set_font("Helvetica", 'B', 12)
     
-    # FIXED: Dynamic coloring for Profit Delta
     sign = ""
     if profit_delta > 0:
-        pdf.set_text_color(0, 128, 0) # Green
+        pdf.set_text_color(0, 128, 0)
         sign = "+"
     elif profit_delta < 0:
-        pdf.set_text_color(200, 0, 0) # Red
-        # Negative numbers already have a minus sign from formatting
+        pdf.set_text_color(200, 0, 0)
     else:
-        pdf.set_text_color(0, 0, 0)   # Black
+        pdf.set_text_color(0, 0, 0)
 
     pdf.cell(95, 10, f"{sign}${profit_delta:,.0f}", border=0, align='R', new_x="LMARGIN", new_y="NEXT")
     
-    pdf.set_text_color(0, 0, 0) # Reset color
+    pdf.set_text_color(0, 0, 0)
     pdf.set_font("Helvetica", size=12)
     pdf.cell(95, 10, "Total Claims Avoided:", border=0)
     pdf.set_font("Helvetica", 'B', 12)
     pdf.cell(95, 10, f"${claims_saved:,.0f}", border=0, align='R', new_x="LMARGIN", new_y="NEXT")
     pdf.ln(5)
 
-    # --- SECTION 3: DETAILED FINANCIAL BREAKDOWN (The Table) ---
+    # --- SECTION 3: FINANCIAL BREAKDOWN ---
     pdf.set_font("Helvetica", 'B', 10)
     pdf.cell(0, 8, "  3. Detailed Financial Breakdown", 0, 1, 'L', fill=True)
     pdf.ln(2)
 
-    # Table Header
     pdf.set_font("Helvetica", 'B', 10)
     w_item = 80
     w_num = 35
@@ -128,14 +146,9 @@ def create_pdf_report(client_name, metrics, inputs):
     pdf.cell(w_num, 8, "With Faura", 1, 0, 'R')
     pdf.cell(w_num, 8, "Diff", 1, 1, 'R')
 
-    # Rows
     pdf.set_font("Helvetica", size=10)
     
     def add_row(label, sq_val, faura_val, is_total=False, inverse_color=False):
-        """
-        is_total: Bold row
-        inverse_color: True if this is a COST (where decrease is Good/Green, increase is Bad/Red)
-        """
         if is_total:
             pdf.set_font("Helvetica", 'B', 10)
             pdf.set_fill_color(230, 230, 230)
@@ -148,36 +161,26 @@ def create_pdf_report(client_name, metrics, inputs):
         pdf.cell(w_num, 8, f"${sq_val:,.0f}", 1, 0, 'R', fill=True)
         pdf.cell(w_num, 8, f"${faura_val:,.0f}", 1, 0, 'R', fill=True)
         
-        # --- FIXED COLOR LOGIC ---
-        pdf.set_text_color(0, 0, 0) # Default Black
-
+        pdf.set_text_color(0, 0, 0)
         if diff > 0:
-            # Value went UP
-            if inverse_color: pdf.set_text_color(200, 0, 0) # Cost went UP -> Red (Bad)
-            else:             pdf.set_text_color(0, 128, 0) # Profit went UP -> Green (Good)
+            if inverse_color: pdf.set_text_color(200, 0, 0)
+            else:             pdf.set_text_color(0, 128, 0)
         elif diff < 0:
-            # Value went DOWN
-            if inverse_color: pdf.set_text_color(0, 128, 0) # Cost went DOWN -> Green (Good)
-            else:             pdf.set_text_color(200, 0, 0) # Profit went DOWN -> Red (Bad)
+            if inverse_color: pdf.set_text_color(0, 128, 0)
+            else:             pdf.set_text_color(200, 0, 0)
         
         pdf.cell(w_num, 8, f"${diff:,.0f}", 1, 1, 'R', fill=True)
-        pdf.set_text_color(0, 0, 0) # Reset
+        pdf.set_text_color(0, 0, 0)
 
-    # 1. Premium
     add_row("Gross Written Premium", metrics['total_premium'], metrics['total_premium'])
-    # 2. Expenses (Cost -> Inverse Color)
     add_row("(-) Underwriting Expenses", metrics['sq_expenses'], metrics['faura_expenses'], inverse_color=True)
-    # 3. Losses (Cost -> Inverse Color)
     add_row("(-) Expected Incident Losses", metrics['sq_losses'], metrics['faura_losses'], inverse_color=True)
-    # 4. Program Costs (Cost -> Inverse Color)
     add_row("(-) Faura Program Fees", 0, metrics['faura_program_cost'], inverse_color=True)
     add_row("(-) Incentives (Cards+Discounts)", 0, metrics['faura_incentives'], inverse_color=True)
-    # 5. NET PROFIT (Normal Color)
     add_row("= NET UNDERWRITING PROFIT", metrics['sq_profit'], metrics['faura_profit'], is_total=True)
 
     pdf.ln(10)
 
-    # --- SECTION 4: NOTES ---
     pdf.set_font("Helvetica", 'I', 8)
     pdf.multi_cell(0, 5, "Assessment Notes: This report is a generated scenario analysis based on the provided program inputs. "
                          "It projects potential financial outcomes if the defined conversion rates, mitigation effectiveness, "
@@ -185,9 +188,7 @@ def create_pdf_report(client_name, metrics, inputs):
 
     return bytes(pdf.output())
 
-
-# --- 4. CALCULATOR INPUTS & LOGIC ---
-
+# --- 4. CALCULATOR INPUTS ---
 st.title("🔥 Faura Underwriting Profit Calculator")
 
 def currency_input(label, default_value, tooltip=None):
@@ -199,7 +200,6 @@ def currency_input(label, default_value, tooltip=None):
         st.sidebar.error(f"Please enter a valid number for {label}")
     return clean_val
 
-# --- SIDEBAR INPUTS ---
 st.sidebar.header("1. Portfolio Inputs")
 n_homes = st.sidebar.number_input("Number of Homes", value=100, step=1)
 avg_premium = currency_input("Avg Premium per Home", 10000)
@@ -224,7 +224,6 @@ conversion_rate = conversion_input / 100
 gift_card = currency_input("Gift Card Incentive", 50)
 premium_discount = currency_input("Premium Discount", 100)
 
-# --- CALCULATION LOGIC (MOVED UP) ---
 def calculate_metrics():
     total_premium = n_homes * avg_premium
     total_uw_expense = total_premium * expense_ratio
@@ -259,31 +258,27 @@ def calculate_metrics():
 metrics = calculate_metrics()
 
 # --- 5. DASHBOARD LAYOUT ---
-
-# Top Header Area with Button on the Right
-col_header, col_btn = st.columns([3, 1])
+col_header, col_btn = st.columns([3, 1], gap="small")
 
 with col_header:
     st.markdown("### Status Quo vs. Active Mitigation")
 
 with col_btn:
-    # Gather inputs for report
     report_inputs = {
         'n_homes': n_homes, 'avg_premium': avg_premium, 'avg_tiv': avg_tiv,
         'incident_prob': incident_prob, 'expense_ratio': expense_ratio,
         'mdr_unmitigated': mdr_unmitigated, 'mdr_mitigated': mdr_mitigated,
         'conversion_rate': conversion_rate
     }
-    # Generate PDF (Data is ready because we calculated it above)
     pdf_bytes = create_pdf_report(
         client_name="Portfolio Analysis",
         metrics=metrics,
         inputs=report_inputs
     )
-    st.download_button("📥 Download Detailed Report", data=pdf_bytes, file_name="Faura_Underwriting_Report.pdf", mime="application/pdf", use_container_width=True)
+    # Using \n for line break in the label
+    st.download_button("📥 Download\nDetailed Report", data=pdf_bytes, file_name="Faura_Underwriting_Report.pdf", mime="application/pdf", use_container_width=True)
 
 
-# Metric Cards
 c1, c2, c3, c4, c5 = st.columns(5)
 with c1: st.metric("Status Quo Profit", f"${metrics['sq_profit']:,.0f}")
 
