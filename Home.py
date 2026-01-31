@@ -113,18 +113,11 @@ def create_pdf_report(client_name, metrics, inputs):
     pdf.set_font("Helvetica", size=12)
     pdf.cell(95, 10, "Combined Ratio Impact:", border=0)
     
-    # Logic: Lower ratio is better
-    cr_diff = metrics['sq_combined_ratio'] - metrics['faura_combined_ratio']
-    # e.g. SQ=110%, Faura=90% -> diff = 20% point improvement
-    
     pdf.set_font("Helvetica", 'B', 12)
-    # If ratio improved (Faura < SQ), make it green
     if metrics['faura_combined_ratio'] < metrics['sq_combined_ratio']:
-        pdf.set_text_color(0, 128, 0)
-        arrow = "Improvement"
+        pdf.set_text_color(0, 128, 0) # Green for improvement
     else:
-        pdf.set_text_color(200, 0, 0)
-        arrow = "Worsened"
+        pdf.set_text_color(200, 0, 0) # Red for worsening
         
     pdf.cell(95, 10, f"{metrics['sq_combined_ratio']*100:.1f}% -> {metrics['faura_combined_ratio']*100:.1f}%", border=0, align='R', new_x="LMARGIN", new_y="NEXT")
     pdf.set_text_color(0, 0, 0) # Reset
@@ -245,7 +238,6 @@ def calculate_metrics():
     sq_losses = n_homes * avg_tiv * incident_prob * mdr_unmitigated
     sq_profit = total_premium - (total_uw_expense + sq_losses)
     
-    # Combined Ratio (SQ) = (Losses + Expenses) / Premium
     sq_combined_ratio = (sq_losses + total_uw_expense) / total_premium if total_premium > 0 else 0
 
     n_converted = n_homes * conversion_rate
@@ -261,8 +253,6 @@ def calculate_metrics():
     faura_total_cost = total_uw_expense + faura_total_losses + total_faura_fee + total_gift_cards + total_discounts
     faura_profit = total_premium - faura_total_cost
     
-    # Combined Ratio (Faura) = (Losses + All Expenses) / Premium
-    # Note: Program Fees + Incentives are treated as Expenses here
     faura_all_expenses = total_uw_expense + total_faura_fee + total_gift_cards + total_discounts
     faura_combined_ratio = (faura_total_losses + faura_all_expenses) / total_premium if total_premium > 0 else 0
 
@@ -303,7 +293,9 @@ with col_btn:
     st.download_button("📥 Download\nDetailed Report", data=pdf_bytes, file_name="Faura_Underwriting_Report.pdf", mime="application/pdf", use_container_width=True)
 
 
-c1, c2, c3, c4, c5 = st.columns(5)
+# --- UPDATED: 6 Columns to include Combined Ratio ---
+c1, c2, c3, c4, c5, c6 = st.columns(6)
+
 with c1: st.metric("Status Quo Profit", f"${metrics['sq_profit']:,.0f}")
 
 profit_diff = metrics['faura_profit'] - metrics['sq_profit']
@@ -330,6 +322,11 @@ else:
 
 with c5: st.metric("💰 Net Project ROI ($)", f"${net_project_roi_dollars:,.0f}", delta=display_delta, delta_color=delta_color)
 
+# --- NEW WIDGET: Combined Ratio ---
+cr_improvement = (metrics['faura_combined_ratio'] - metrics['sq_combined_ratio']) * 100
+# delta_color="inverse" means Negative (Improvement) is Green
+with c6: st.metric("📉 Combined Ratio", f"{metrics['faura_combined_ratio']*100:.1f}%", delta=f"{cr_improvement:.1f} pts", delta_color="inverse", help="With Faura (Losses + Expenses) / Premium. Lower is better.")
+
 st.markdown("---")
 
 fig = go.Figure()
@@ -352,4 +349,4 @@ st.table(df.style.apply(highlight_total, axis=1))
 
 st.markdown("---")
 with st.expander("ℹ️ Glossary & Formula Logic"):
-    st.markdown("### 1. Variable Definitions\n* **MDR:** Mean Damage Ratio.\n* **TIV:** Total Insurable Value.")
+    st.markdown("### 1. Variable Definitions\n* **MDR:** Mean Damage Ratio.\n* **TIV:** Total Insurable Value.\n* **Combined Ratio:** (Losses + Expenses) / Premium. < 100% means profitable.")
