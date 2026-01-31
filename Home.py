@@ -103,7 +103,7 @@ def create_pdf_report(client_name, premium, loss_ratio, expense_ratio, profit_ma
                          "This is a generated estimate for pre-bind decision support.")
 
     # 5. Output PDF to bytes
-    return pdf.output(dest='S').encode('latin-1')
+    return bytes(pdf.output())  
 
 
 # --- 4. CALCULATOR INPUTS & LOGIC ---
