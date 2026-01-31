@@ -1,6 +1,77 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+from fpdf import FPDF
+
+def create_pdf_report(client_name, premium, loss_ratio, expense_ratio, profit_margin, final_profit):
+    """
+    Generates a PDF report with the calculator results.
+    """
+    class PDF(FPDF):
+        def header(self):
+            # Logo or Company Name
+            self.set_font('Helvetica', 'B', 20)
+            self.cell(0, 10, 'Faura', new_x="LMARGIN", new_y="NEXT", align='L')
+            self.set_font('Helvetica', 'I', 10)
+            self.cell(0, 10, 'Underwriting Profitability Assessment', new_x="LMARGIN", new_y="NEXT", align='L')
+            self.ln(10) # Line break
+
+        def footer(self):
+            self.set_y(-15)
+            self.set_font('Helvetica', 'I', 8)
+            self.cell(0, 10, f'Page {self.page_no()}', align='C')
+
+    # 1. Setup PDF
+    pdf = PDF()
+    pdf.add_page()
+    pdf.set_font("Helvetica", size=12)
+
+    # 2. Client Details Section
+    pdf.set_font("Helvetica", 'B', 14)
+    pdf.cell(0, 10, f"Report For: {client_name}", new_x="LMARGIN", new_y="NEXT")
+    pdf.line(10, 30, 200, 30) # Draw a line under the title
+    pdf.ln(5)
+
+    # 3. The Metrics Table
+    pdf.set_font("Helvetica", size=12)
+    
+    # Helper to create a row
+    def add_metric_row(label, value, is_bold=False):
+        pdf.set_font("Helvetica", 'B' if is_bold else '', 12)
+        pdf.cell(100, 10, label, border=1)
+        pdf.cell(0, 10, value, border=1, new_x="LMARGIN", new_y="NEXT", align='R')
+
+    add_metric_row("Estimated Premium", f"${premium:,.2f}")
+    add_metric_row("Target Loss Ratio", f"{loss_ratio:.1f}%")
+    add_metric_row("Expense Ratio", f"{expense_ratio:.1f}%")
+    
+    # Highlight the Result
+    pdf.set_fill_color(240, 240, 240) # Light gray background
+    pdf.set_font("Helvetica", 'B', 12)
+    pdf.cell(100, 10, "Net Underwriting Profit", border=1, fill=True)
+    
+    # Color text red if negative, green if positive
+    if final_profit < 0:
+        pdf.set_text_color(200, 0, 0)
+    else:
+        pdf.set_text_color(0, 128, 0)
+        
+    pdf.cell(0, 10, f"${final_profit:,.2f}", border=1, fill=True, new_x="LMARGIN", new_y="NEXT", align='R')
+    
+    # Reset text color
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(10)
+
+    # 4. Commentary / Disclaimer
+    pdf.set_font("Helvetica", 'B', 12)
+    pdf.cell(0, 10, "Assessment Notes:", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", size=10)
+    pdf.multi_cell(0, 5, "This report assumes standard Faura hydration for Construction Era and Roof Type. "
+                         "Actual profitability may vary based on final verified inspection data. "
+                         "This is a generated estimate for pre-bind decision support.")
+
+    # 5. Output PDF to bytes
+    return pdf.output(dest='S').encode('latin-1')
 
 
 # --- PAGE CONFIGURATION ---
@@ -35,6 +106,33 @@ if not check_password():
 
 st.title("🔥 Faura Underwriting Profit Calculator")
 st.markdown("### Status Quo vs. Active Mitigation")
+
+# ... (Your existing calculator code where you calculate 'profit' etc) ...
+
+st.divider()
+st.subheader("📄 Export Report")
+
+# Check if we have results to print
+if 'total_profit' in locals(): # Or whatever your variable name is
+    
+    # 1. Generate the PDF bytes
+    # Replace these variable names with your ACTUAL variables from the calculator
+    pdf_bytes = create_pdf_report(
+        client_name="Portfolio Analysis",  # You can make this dynamic if you have an input for it
+        premium=total_premium,             # Replace with your variable
+        loss_ratio=target_loss_ratio,      # Replace with your variable
+        expense_ratio=expense_load,        # Replace with your variable
+        profit_margin=profit_margin_pct,   # Replace with your variable
+        final_profit=total_profit          # Replace with your variable
+    )
+
+    # 2. The Download Button
+    st.download_button(
+        label="📥 Download PDF Report",
+        data=pdf_bytes,
+        file_name="Faura_Underwriting_Report.pdf",
+        mime="application/pdf"
+    )
 
 # --- HELPER FUNCTION FOR CURRENCY INPUTS ---
 def currency_input(label, default_value, tooltip=None):
