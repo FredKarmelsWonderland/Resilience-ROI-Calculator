@@ -3,6 +3,37 @@ import pandas as pd
 import plotly.graph_objects as go
 from fpdf import FPDF
 
+# --- 1. PAGE CONFIGURATION (Must be first) ---
+st.set_page_config(page_title="Faura ROI Calculator", layout="wide")
+
+# --- 2. STANDARDIZED LOGIN BLOCK ---
+def check_password():
+    """Returns `True` if the user had the correct password."""
+    # Check if the password is already correct in the session
+    if st.session_state.get("password_correct", False):
+        return True
+
+    # Show input in the MAIN AREA (not sidebar)
+    st.title("🔒 Faura Risk Calculator")
+    
+    with st.form("login_form"):
+        st.write("Please enter the access code to view the calculator.")
+        password = st.text_input("Password", type="password")
+        submitted = st.form_submit_button("Log In")
+        
+        if submitted:
+            if password == "Faura2026":
+                st.session_state["password_correct"] = True
+                st.rerun()
+            else:
+                st.error("😕 Password incorrect")
+    return False
+
+if not check_password():
+    st.stop()  # Stop execution if password is wrong
+
+
+# --- 3. PDF GENERATOR FUNCTION ---
 def create_pdf_report(client_name, premium, loss_ratio, expense_ratio, profit_margin, final_profit):
     """
     Generates a PDF report with the calculator results.
@@ -44,6 +75,7 @@ def create_pdf_report(client_name, premium, loss_ratio, expense_ratio, profit_ma
     add_metric_row("Estimated Premium", f"${premium:,.2f}")
     add_metric_row("Target Loss Ratio", f"{loss_ratio:.1f}%")
     add_metric_row("Expense Ratio", f"{expense_ratio:.1f}%")
+    add_metric_row("Profit Margin", f"{profit_margin:.1f}%")
     
     # Highlight the Result
     pdf.set_fill_color(240, 240, 240) # Light gray background
@@ -74,67 +106,12 @@ def create_pdf_report(client_name, premium, loss_ratio, expense_ratio, profit_ma
     return pdf.output(dest='S').encode('latin-1')
 
 
-# --- PAGE CONFIGURATION ---
-st.set_page_config(page_title="Faura ROI Calculator", layout="wide")
-
-# --- 2. STANDARDIZED LOGIN BLOCK (Copy this to all pages) ---
-def check_password():
-    """Returns `True` if the user had the correct password."""
-    # Check if the password is already correct in the session
-    if st.session_state.get("password_correct", False):
-        return True
-
-    # Show input in the MAIN AREA (not sidebar)
-    st.title("🔒 Faura Portfolio Map")
-    
-    with st.form("login_form"):
-        st.write("Please enter the access code to view the map.")
-        password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Log In")
-        
-        if submitted:
-            if password == "Faura2026":
-                st.session_state["password_correct"] = True
-                st.rerun()
-            else:
-                st.error("😕 Password incorrect")
-    return False
-
-if not check_password():
-    st.stop()  # Stop execution if password is wrong
-
+# --- 4. CALCULATOR INPUTS & LOGIC ---
 
 st.title("🔥 Faura Underwriting Profit Calculator")
 st.markdown("### Status Quo vs. Active Mitigation")
 
-# ... (Your existing calculator code where you calculate 'profit' etc) ...
-
-st.divider()
-st.subheader("📄 Export Report")
-
-# Check if we have results to print
-if 'total_profit' in locals(): # Or whatever your variable name is
-    
-    # 1. Generate the PDF bytes
-    # Replace these variable names with your ACTUAL variables from the calculator
-    pdf_bytes = create_pdf_report(
-        client_name="Portfolio Analysis",  # You can make this dynamic if you have an input for it
-        premium=total_premium,             # Replace with your variable
-        loss_ratio=target_loss_ratio,      # Replace with your variable
-        expense_ratio=expense_load,        # Replace with your variable
-        profit_margin=profit_margin_pct,   # Replace with your variable
-        final_profit=total_profit          # Replace with your variable
-    )
-
-    # 2. The Download Button
-    st.download_button(
-        label="📥 Download PDF Report",
-        data=pdf_bytes,
-        file_name="Faura_Underwriting_Report.pdf",
-        mime="application/pdf"
-    )
-
-# --- HELPER FUNCTION FOR CURRENCY INPUTS ---
+# Helper function for currency inputs
 def currency_input(label, default_value, tooltip=None):
     user_input = st.sidebar.text_input(
         label, 
@@ -216,7 +193,7 @@ def calculate_metrics():
 
 metrics = calculate_metrics()
 
-# --- DASHBOARD LAYOUT ---
+# --- 5. DASHBOARD LAYOUT ---
 
 # Consolidated Metrics Row
 st.subheader("1. Financial Impact Analysis")
@@ -338,3 +315,30 @@ with st.expander("ℹ️ Glossary & Formula Logic (Click to Expand)", expanded=F
     st.latex(r'''
         \text{Profit} = \text{Gross Premium} - \Big( \text{UW Expenses} + \text{Expected Losses} + \text{Faura Costs} + \text{Incentives} \Big)
     ''')
+
+
+# --- 6. EXPORT REPORT BUTTON ---
+st.divider()
+st.subheader("📄 Export Report")
+
+# Check if 'metrics' exists (it should, but safety first)
+if 'metrics' in locals():
+    
+    # 1. Generate the PDF bytes
+    # MAPPING FIX: Use the 'metrics' dict values, NOT global variables that don't exist
+    pdf_bytes = create_pdf_report(
+        client_name="Portfolio Analysis",
+        premium=metrics['total_premium'], 
+        loss_ratio=incident_prob * 100,        # Use input directly
+        expense_ratio=expense_ratio * 100,     # Use input directly
+        profit_margin=metrics['faura_profit'] / metrics['total_premium'] * 100,
+        final_profit=metrics['faura_profit']
+    )
+
+    # 2. The Download Button
+    st.download_button(
+        label="📥 Download PDF Report",
+        data=pdf_bytes,
+        file_name="Faura_Underwriting_Report.pdf",
+        mime="application/pdf"
+    )
