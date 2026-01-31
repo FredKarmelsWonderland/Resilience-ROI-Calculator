@@ -30,7 +30,7 @@ def check_password():
 if not check_password():
     st.stop()
 
-# --- 3. PDF GENERATOR FUNCTION ---
+# --- 3. UPGRADED PDF GENERATOR FUNCTION ---
 def create_pdf_report(client_name, metrics, inputs):
     """
     Generates a detailed PDF report including portfolio inputs and full P&L comparison.
@@ -93,8 +93,19 @@ def create_pdf_report(client_name, metrics, inputs):
     pdf.set_font("Helvetica", size=12)
     pdf.cell(95, 10, "Net Profit Increase (Delta):", border=0)
     pdf.set_font("Helvetica", 'B', 12)
-    pdf.set_text_color(0, 128, 0) # Green
-    pdf.cell(95, 10, f"+${profit_delta:,.0f}", border=0, align='R', new_x="LMARGIN", new_y="NEXT")
+    
+    # FIXED: Dynamic coloring for Profit Delta
+    sign = ""
+    if profit_delta > 0:
+        pdf.set_text_color(0, 128, 0) # Green
+        sign = "+"
+    elif profit_delta < 0:
+        pdf.set_text_color(200, 0, 0) # Red
+        # Negative numbers already have a minus sign from formatting
+    else:
+        pdf.set_text_color(0, 0, 0)   # Black
+
+    pdf.cell(95, 10, f"{sign}${profit_delta:,.0f}", border=0, align='R', new_x="LMARGIN", new_y="NEXT")
     
     pdf.set_text_color(0, 0, 0) # Reset color
     pdf.set_font("Helvetica", size=12)
@@ -120,7 +131,11 @@ def create_pdf_report(client_name, metrics, inputs):
     # Rows
     pdf.set_font("Helvetica", size=10)
     
-    def add_row(label, sq_val, faura_val, is_total=False):
+    def add_row(label, sq_val, faura_val, is_total=False, inverse_color=False):
+        """
+        is_total: Bold row
+        inverse_color: True if this is a COST (where decrease is Good/Green, increase is Bad/Red)
+        """
         if is_total:
             pdf.set_font("Helvetica", 'B', 10)
             pdf.set_fill_color(230, 230, 230)
@@ -133,30 +148,37 @@ def create_pdf_report(client_name, metrics, inputs):
         pdf.cell(w_num, 8, f"${sq_val:,.0f}", 1, 0, 'R', fill=True)
         pdf.cell(w_num, 8, f"${faura_val:,.0f}", 1, 0, 'R', fill=True)
         
-        # Color the difference
-        if diff > 0 and is_total: pdf.set_text_color(0, 128, 0) # Green for profit gain
-        elif diff < 0 and not is_total: pdf.set_text_color(200, 0, 0) # Red for higher costs
+        # --- FIXED COLOR LOGIC ---
+        pdf.set_text_color(0, 0, 0) # Default Black
+
+        if diff > 0:
+            # Value went UP
+            if inverse_color: pdf.set_text_color(200, 0, 0) # Cost went UP -> Red (Bad)
+            else:             pdf.set_text_color(0, 128, 0) # Profit went UP -> Green (Good)
+        elif diff < 0:
+            # Value went DOWN
+            if inverse_color: pdf.set_text_color(0, 128, 0) # Cost went DOWN -> Green (Good)
+            else:             pdf.set_text_color(200, 0, 0) # Profit went DOWN -> Red (Bad)
         
         pdf.cell(w_num, 8, f"${diff:,.0f}", 1, 1, 'R', fill=True)
         pdf.set_text_color(0, 0, 0) # Reset
 
     # 1. Premium
     add_row("Gross Written Premium", metrics['total_premium'], metrics['total_premium'])
-    # 2. Expenses
-    add_row("(-) Underwriting Expenses", metrics['sq_expenses'], metrics['faura_expenses'])
-    # 3. Losses
-    add_row("(-) Expected Incident Losses", metrics['sq_losses'], metrics['faura_losses'])
-    # 4. Program Costs
-    add_row("(-) Faura Program Fees", 0, metrics['faura_program_cost'])
-    add_row("(-) Incentives (Cards+Discounts)", 0, metrics['faura_incentives'])
-    # 5. NET PROFIT
+    # 2. Expenses (Cost -> Inverse Color)
+    add_row("(-) Underwriting Expenses", metrics['sq_expenses'], metrics['faura_expenses'], inverse_color=True)
+    # 3. Losses (Cost -> Inverse Color)
+    add_row("(-) Expected Incident Losses", metrics['sq_losses'], metrics['faura_losses'], inverse_color=True)
+    # 4. Program Costs (Cost -> Inverse Color)
+    add_row("(-) Faura Program Fees", 0, metrics['faura_program_cost'], inverse_color=True)
+    add_row("(-) Incentives (Cards+Discounts)", 0, metrics['faura_incentives'], inverse_color=True)
+    # 5. NET PROFIT (Normal Color)
     add_row("= NET UNDERWRITING PROFIT", metrics['sq_profit'], metrics['faura_profit'], is_total=True)
 
     pdf.ln(10)
 
-    # --- SECTION 4: NOTES (REVISED) ---
+    # --- SECTION 4: NOTES ---
     pdf.set_font("Helvetica", 'I', 8)
-    # UPDATED DISCLAIMER TEXT PER REQUEST
     pdf.multi_cell(0, 5, "Assessment Notes: This report is a generated scenario analysis based on the provided program inputs. "
                          "It projects potential financial outcomes if the defined conversion rates, mitigation effectiveness, "
                          "and cost structures are achieved. Actual results will vary based on realized program performance.")
@@ -203,7 +225,6 @@ gift_card = currency_input("Gift Card Incentive", 50)
 premium_discount = currency_input("Premium Discount", 100)
 
 # --- CALCULATION LOGIC (MOVED UP) ---
-# We calculate this BEFORE the layout so we can use the results in the Header Button
 def calculate_metrics():
     total_premium = n_homes * avg_premium
     total_uw_expense = total_premium * expense_ratio
