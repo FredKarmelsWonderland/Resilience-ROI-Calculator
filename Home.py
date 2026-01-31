@@ -276,7 +276,7 @@ with col_btn:
         inputs=report_inputs
     )
     # Using \n for line break in the label
-    st.download_button("📥 Download\nDetailed Report", data=pdf_bytes, file_name="Faura_Underwriting_Report.pdf", mime="application/pdf", use_container_width=True)
+    st.download_button("📥 Download\nReport", data=pdf_bytes, file_name="Faura_Underwriting_Report.pdf", mime="application/pdf", use_container_width=True)
 
 
 c1, c2, c3, c4, c5 = st.columns(5)
