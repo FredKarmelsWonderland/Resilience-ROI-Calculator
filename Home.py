@@ -30,7 +30,7 @@ def check_password():
 if not check_password():
     st.stop()
 
-# --- 3. UPGRADED PDF GENERATOR FUNCTION ---
+# --- 3. PDF GENERATOR FUNCTION ---
 def create_pdf_report(client_name, metrics, inputs):
     """
     Generates a detailed PDF report including portfolio inputs and full P&L comparison.
@@ -154,11 +154,12 @@ def create_pdf_report(client_name, metrics, inputs):
 
     pdf.ln(10)
 
-    # --- SECTION 4: NOTES ---
+    # --- SECTION 4: NOTES (REVISED) ---
     pdf.set_font("Helvetica", 'I', 8)
-    pdf.multi_cell(0, 5, "Assessment Notes: This report is a generated estimate for pre-bind decision support. "
-                         "It assumes standard Faura hydration for Construction Era and Roof Type. "
-                         "Actual profitability may vary based on final verified inspection data.")
+    # UPDATED DISCLAIMER TEXT PER REQUEST
+    pdf.multi_cell(0, 5, "Assessment Notes: This report is a generated scenario analysis based on the provided program inputs. "
+                         "It projects potential financial outcomes if the defined conversion rates, mitigation effectiveness, "
+                         "and cost structures are achieved. Actual results will vary based on realized program performance.")
 
     return bytes(pdf.output())
 
@@ -166,7 +167,6 @@ def create_pdf_report(client_name, metrics, inputs):
 # --- 4. CALCULATOR INPUTS & LOGIC ---
 
 st.title("🔥 Faura Underwriting Profit Calculator")
-st.markdown("### Status Quo vs. Active Mitigation")
 
 def currency_input(label, default_value, tooltip=None):
     user_input = st.sidebar.text_input(label, value=f"${default_value:,.0f}", help=tooltip)
@@ -202,7 +202,8 @@ conversion_rate = conversion_input / 100
 gift_card = currency_input("Gift Card Incentive", 50)
 premium_discount = currency_input("Premium Discount", 100)
 
-# --- CALCULATION LOGIC ---
+# --- CALCULATION LOGIC (MOVED UP) ---
+# We calculate this BEFORE the layout so we can use the results in the Header Button
 def calculate_metrics():
     total_premium = n_homes * avg_premium
     total_uw_expense = total_premium * expense_ratio
@@ -237,7 +238,31 @@ def calculate_metrics():
 metrics = calculate_metrics()
 
 # --- 5. DASHBOARD LAYOUT ---
-st.subheader("1. Financial Impact Analysis")
+
+# Top Header Area with Button on the Right
+col_header, col_btn = st.columns([3, 1])
+
+with col_header:
+    st.markdown("### Status Quo vs. Active Mitigation")
+
+with col_btn:
+    # Gather inputs for report
+    report_inputs = {
+        'n_homes': n_homes, 'avg_premium': avg_premium, 'avg_tiv': avg_tiv,
+        'incident_prob': incident_prob, 'expense_ratio': expense_ratio,
+        'mdr_unmitigated': mdr_unmitigated, 'mdr_mitigated': mdr_mitigated,
+        'conversion_rate': conversion_rate
+    }
+    # Generate PDF (Data is ready because we calculated it above)
+    pdf_bytes = create_pdf_report(
+        client_name="Portfolio Analysis",
+        metrics=metrics,
+        inputs=report_inputs
+    )
+    st.download_button("📥 Download Detailed Report", data=pdf_bytes, file_name="Faura_Underwriting_Report.pdf", mime="application/pdf", use_container_width=True)
+
+
+# Metric Cards
 c1, c2, c3, c4, c5 = st.columns(5)
 with c1: st.metric("Status Quo Profit", f"${metrics['sq_profit']:,.0f}")
 
@@ -288,29 +313,3 @@ st.table(df.style.apply(highlight_total, axis=1))
 st.markdown("---")
 with st.expander("ℹ️ Glossary & Formula Logic"):
     st.markdown("### 1. Variable Definitions\n* **MDR:** Mean Damage Ratio.\n* **TIV:** Total Insurable Value.")
-
-# --- 6. EXPORT REPORT BUTTON ---
-st.divider()
-st.subheader("📄 Export Report")
-
-if 'metrics' in locals():
-    # Gather inputs for the report context
-    report_inputs = {
-        'n_homes': n_homes,
-        'avg_premium': avg_premium,
-        'avg_tiv': avg_tiv,
-        'incident_prob': incident_prob,
-        'expense_ratio': expense_ratio,
-        'mdr_unmitigated': mdr_unmitigated,
-        'mdr_mitigated': mdr_mitigated,
-        'conversion_rate': conversion_rate
-    }
-    
-    # Generate PDF with ALL data
-    pdf_bytes = create_pdf_report(
-        client_name="Portfolio Analysis",
-        metrics=metrics,
-        inputs=report_inputs
-    )
-    
-    st.download_button("📥 Download Detailed PDF Report", data=pdf_bytes, file_name="Faura_Underwriting_Report.pdf", mime="application/pdf")
