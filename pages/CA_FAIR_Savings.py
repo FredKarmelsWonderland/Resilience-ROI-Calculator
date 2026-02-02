@@ -88,8 +88,11 @@ with col2:
     st.markdown("**Structure Checklist**")
     st.caption("All items typically required for full 10% Bundle")
     
-    # If Wood Shake is YES, we disable these boxes so they can't be clicked.
-    s1 = st.checkbox("Class A Fire Rated Roof", value=True if not has_wood_shake else False, disabled=True, help="Must be verified Class A")
+    # FIXED LOGIC:
+    # 1. If Wood Shake is YES -> Checkbox is Disabled AND False.
+    # 2. If Wood Shake is NO  -> Checkbox is Enabled AND False (User must verify Class A).
+    s1 = st.checkbox("Class A Fire Rated Roof", value=False, disabled=disable_structure, help="Must be verified Class A material (Comp Shingle, Tile, Metal)")
+    
     s2 = st.checkbox("Enclosed Eaves", disabled=disable_structure)
     s3 = st.checkbox("Ember-Resistant Vents", disabled=disable_structure)
     s4 = st.checkbox("Multi-Pane Windows", disabled=disable_structure)
@@ -98,7 +101,7 @@ with col2:
     if has_wood_shake:
         structure_count = 0
     else:
-        # We assume s1 is "checked" if they passed the gate, but we only count user actions s2-s5 + the roof credit
+        # Now we sum the user's actual choices
         structure_count = sum([s1, s2, s3, s4, s5])
 
 # --- CALCULATION LOGIC ---
@@ -115,7 +118,6 @@ discount_accumulated += (surroundings_count * 0.006)
 discount_accumulated += (structure_count * 0.014)
 
 # 4. Completion Bonus (~1.4% bonus to reach 16.4% if ALL items are done)
-# Note: If wood shake is True, structure_count is 0, so is_complete is False.
 is_complete = (surroundings_count == 5) and (structure_count == 5)
 if is_complete:
     discount_accumulated += 0.014 # Bonus kicker
