@@ -1,15 +1,14 @@
 import streamlit as st
+
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="FAIR Plan Discount Calculator", layout="wide")
 
-# --- 2. STANDARDIZED LOGIN BLOCK (Copy this to all pages) ---
+# --- STANDARDIZED LOGIN BLOCK ---
 def check_password():
     """Returns `True` if the user had the correct password."""
-    # Check if the password is already correct in the session
     if st.session_state.get("password_correct", False):
         return True
 
-    # Show input in the MAIN AREA (not sidebar)
     st.title("🔒 Faura Portfolio Map")
     
     with st.form("login_form"):
@@ -26,12 +25,14 @@ def check_password():
     return False
 
 if not check_password():
-    st.stop()  # Stop execution if password is wrong
+    st.stop()
 
 
+# --- MAIN APP CONTENT ---
 st.title("🏛️ California FAIR Plan: Discount Calculator")
 st.markdown("""
-This calculator estimates the itemized premium reduction available to homeowners on the CA FAIR plan for verified mitigation actions.
+This calculator estimates the itemized premium reduction available to homeowners on the CA FAIR plan.
+It separates savings into **Surroundings (Bucket A)** and **Structure (Bucket B)** to highlight eligibility blockers.
 """)
 
 # --- SIDEBAR: POLICY INPUTS ---
@@ -52,9 +53,10 @@ st.markdown("---")
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("1. Community & Surroundings")
+    st.subheader("1. Community & Surroundings (Bucket A)")
+    st.info("✅ **Always Eligible:** These discounts are available regardless of roof type.")
     
-    # Community Discount (Calibrated to FAIR Plan ~5%)
+    # Community Discount
     st.markdown("**Community Level**")
     is_firewise = st.checkbox("📍 Located in Firewise USA Site", help="Estimated ~5% discount")
     
@@ -69,18 +71,37 @@ with col1:
     surroundings_count = sum([c1, c2, c3, c4, c5])
 
 with col2:
-    st.subheader("2. Structure Hardening")
-    st.caption("Each item estimated at ~1.4% discount")
+    st.subheader("2. Structure Hardening (Bucket B)")
     
-    s1 = st.checkbox("Class A Fire Rated Roof")
-    s2 = st.checkbox("Enclosed Eaves")
-    s3 = st.checkbox("Ember-Resistant Vents")
-    s4 = st.checkbox("Multi-Pane Windows")
-    s5 = st.checkbox("6-inch Vertical Clearance")
+    # --- THE LOGIC GATE ---
+    # We ask the disqualifying question first.
+    has_wood_shake = st.toggle("⚠️ Does home have a Wood Shake Roof?", value=False)
     
-    structure_count = sum([s1, s2, s3, s4, s5])
+    if has_wood_shake:
+        st.error("⛔ **DISQUALIFIED:** Wood roofs are ineligible for Structure discounts.")
+        st.caption("Action Required: Replace roof to unlock ~7-10% savings below.")
+        disable_structure = True
+    else:
+        st.success("✅ **ELIGIBLE:** Roof type qualifies for Structure discounts.")
+        disable_structure = False
+    
+    st.markdown("**Structure Checklist**")
+    st.caption("All items typically required for full 10% Bundle")
+    
+    # If Wood Shake is YES, we disable these boxes so they can't be clicked.
+    s1 = st.checkbox("Class A Fire Rated Roof", value=True if not has_wood_shake else False, disabled=True, help="Must be verified Class A")
+    s2 = st.checkbox("Enclosed Eaves", disabled=disable_structure)
+    s3 = st.checkbox("Ember-Resistant Vents", disabled=disable_structure)
+    s4 = st.checkbox("Multi-Pane Windows", disabled=disable_structure)
+    s5 = st.checkbox("6-inch Vertical Clearance", disabled=disable_structure)
+    
+    if has_wood_shake:
+        structure_count = 0
+    else:
+        # We assume s1 is "checked" if they passed the gate, but we only count user actions s2-s5 + the roof credit
+        structure_count = sum([s1, s2, s3, s4, s5])
 
-# --- CALCULATION LOGIC (Calibrated to 16.4% Max) ---
+# --- CALCULATION LOGIC ---
 discount_accumulated = 0.0
 
 # 1. Community Discount (~5%)
@@ -94,6 +115,7 @@ discount_accumulated += (surroundings_count * 0.006)
 discount_accumulated += (structure_count * 0.014)
 
 # 4. Completion Bonus (~1.4% bonus to reach 16.4% if ALL items are done)
+# Note: If wood shake is True, structure_count is 0, so is_complete is False.
 is_complete = (surroundings_count == 5) and (structure_count == 5)
 if is_complete:
     discount_accumulated += 0.014 # Bonus kicker
@@ -118,14 +140,16 @@ with metrics_container:
         st.metric("Wildfire Risk Portion", f"${wildfire_portion_initial:,.0f}", help="The specific portion of the bill eligible for discounts")
         
     with c3:
-        # The Hero Metric: Showing the Wildfire portion shrinking
+        # The Hero Metric
         st.metric("New Wildfire Portion", f"${wildfire_portion_new:,.0f}", delta=f"-${savings:,.0f}", delta_color="inverse")
         
     with c4:
         st.metric("New Total Annual Bill", f"${new_total_premium:,.0f}", delta=f"-{final_discount_pct*100:.1f}% Risk Portion Drop")
 
     # Progress/Bonus Notification
-    if is_complete:
+    if has_wood_shake:
+        st.warning("⚠️ **Structure Savings Locked:** Replace wood roof to unlock maximum potential.")
+    elif is_complete:
         st.success("✅ **MAXIMUM SAVINGS UNLOCKED:** You have reached the 16.4% Cap.")
     elif (surroundings_count + structure_count) > 0:
         items_done = surroundings_count + structure_count
@@ -137,11 +161,9 @@ st.markdown("---")
 st.warning("""
 **Disclaimer:** All discount percentages are **estimates** based on the 16.4% maximum defined in the FAIR Plan "Safer from Wildfires" filing. 
 Actual credits may vary based on your specific location, policy limits, and final underwriting. 
-You must inform your insurance agent or broker to request these discounts. 
-Documentation (photos, receipts, or inspection reports) is required to verify improvements.
+**Wood Shake Roofs:** Homes with wood shake roofs are generally ineligible for structural discounts until the roof is replaced with a Class A rated material.
 """)
 st.caption("""
 **Source Methodology:** Discount estimates are calibrated to the **California FAIR Plan Discount Guide (November 2025)**, 
 which caps total wildfire mitigation discounts at 16.4%.
-[View Official FAIR Plan Discount Document](https://www.cfpnet.com/wp-content/uploads/2025/11/Discounts-for-Dwelling-Fire-Commercial-Policies-2025.11.15.pdf)
 """)
