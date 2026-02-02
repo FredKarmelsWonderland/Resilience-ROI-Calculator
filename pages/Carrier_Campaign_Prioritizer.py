@@ -41,25 +41,17 @@ def generate_portfolio(n=1000):
     tiv = np.random.lognormal(mean=13.5, sigma=0.6, size=n)
     tiv = np.clip(tiv, 250000, 5000000)
     
-    # 2. Construction Year (1950 - 2024)
-    # Weighted towards older homes (common in high risk CA areas)
-    years = np.random.triangular(1950, 1980, 2024, size=n).astype(int)
-    
-    # 3. Fire Probability (0.1% to 5%)
-    # Slightly correlated with older homes (built deeper in WUI)
+    # 2. Fire Probability (0.1% to 5%)
     prob_fire = np.random.beta(2, 50, size=n) 
     prob_fire = np.clip(prob_fire, 0.001, 0.05)
     
-    # 4. Resilience Score (The MDR Proxy)
-    # Correlation: Older homes generally have lower scores (worse resilience)
-    # But some old homes are retrofitted (noise)
-    base_score = 60 + ((years - 1980) * 0.5) 
-    qa_score = base_score + np.random.normal(0, 10, size=n)
+    # 3. Resilience Score (The MDR Proxy)
+    # Higher Score = Lower Damage
+    qa_score = np.random.normal(60, 15, size=n)
     qa_score = np.clip(qa_score, 10, 95)
     
     df = pd.DataFrame({
         "Policy ID": [f"POL-{i:04d}" for i in range(n)],
-        "Year_Built": years,
         "TIV": tiv,
         "Fire_Prob": prob_fire,
         "Resilience_Score": qa_score,
@@ -87,7 +79,6 @@ df = generate_portfolio()
 df["Rank_Risk"] = df["Expected_Loss_Annual"]
 
 # Strategy B: RANDOM (Status Quo / Alphabetical)
-# Simulates what happens if they just call down the list without data
 df["Rank_Random"] = np.random.rand(len(df))
 
 # --- 3. RUN SIMULATION ---
@@ -99,14 +90,12 @@ def evaluate_campaign(rank_col, name):
     total_tiv = campaign["TIV"].sum()
     total_risk = campaign["Expected_Loss_Annual"].sum()
     avg_score = campaign["Resilience_Score"].mean()
-    avg_year = campaign["Year_Built"].mean()
     
     return {
         "Name": name,
         "Total Risk Targeted": total_risk,
         "Total TIV Touched": total_tiv,
         "Avg Resilience Score": avg_score,
-        "Avg Year Built": avg_year,
         "Selection": campaign
     }
 
@@ -160,20 +149,46 @@ st.plotly_chart(fig, use_container_width=True)
 # --- 6. TARGET LIST PREVIEW ---
 st.markdown("---")
 st.subheader(f"📋 Priority Target List ({budget_count} Homes)")
-st.caption("Notice that we prioritize Older Homes and Low Scores, but **High TIV** often bumps a newer home up the list if the financial loss potential is high enough.")
+st.caption("Sorted by **Annual Risk Exposure** (TIV × Fire Prob × Vulnerability)")
 
-target_list = res_faura['Selection'].copy()
+# --- DISPLAY LOGIC (Custom Formatting for Display Table) ---
+target_display = res_faura['Selection'].copy()
+
+# Helper function for K/M formatting
+def format_currency(val):
+    if val >= 1_000_000:
+        return f"${val/1_000_000:.2f}M"
+    else:
+        return f"${val/1_000:.0f}K"
+
+# Apply formatting for display
+target_display["Display_TIV"] = target_display["TIV"].apply(format_currency)
+target_display["Display_Loss"] = target_display["Expected_Loss_Annual"].apply(format_currency)
 
 st.dataframe(
-    target_list[["Policy ID", "Year_Built", "TIV", "Resilience_Score", "MDR_Est", "Expected_Loss_Annual"]],
+    target_display[["Policy ID", "Display_TIV", "Fire_Prob", "Resilience_Score", "MDR_Est", "Display_Loss"]],
     column_config={
-        "Year_Built": st.column_config.NumberColumn(format="%d"),
-        "TIV": st.column_config.NumberColumn(format="$%d"),
+        "Policy ID": "Policy ID",
+        "Display_TIV": "TIV",
+        "Fire_Prob": st.column_config.NumberColumn("Ann. Fire Prob", format="%.2f%%"),
         "Resilience_Score": st.column_config.NumberColumn("QA Score", format="%d"),
         "MDR_Est": st.column_config.ProgressColumn("Vuln. (MDR)", format="%.2f", min_value=0, max_value=1),
-        "Expected_Loss_Annual": st.column_config.NumberColumn("Annual Risk Exp.", format="$%d", help="The primary sorting factor")
+        "Display_Loss": st.column_config.TextColumn("Annual Risk Exp.") # TextColumn because we pre-formatted it
     },
     use_container_width=True
 )
 
-st.download_button("📥 Download Priority List", target_list.to_csv(index=False), "faura_priority_targets.csv")
+# --- DOWNLOAD LOGIC (Clean Numbers for CSV) ---
+download_df = res_faura['Selection'].copy()
+
+# Rounding
+download_df["Resilience_Score"] = download_df["Resilience_Score"].round(0).astype(int)
+download_df["MDR_Est"] = download_df["MDR_Est"].round(2)
+download_df["Expected_Loss_Annual"] = download_df["Expected_Loss_Annual"].round(0).astype(int)
+download_df["TIV"] = download_df["TIV"].round(0).astype(int)
+
+# Drop unwanted columns
+cols_to_keep = ["Policy ID", "TIV", "Fire_Prob", "Resilience_Score", "MDR_Est", "Expected_Loss_Annual"]
+csv_data = download_df[cols_to_keep].to_csv(index=False)
+
+st.download_button("📥 Download Priority List (CSV)", csv_data, "faura_priority_targets.csv")
