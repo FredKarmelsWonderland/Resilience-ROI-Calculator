@@ -209,8 +209,8 @@ def currency_input(label, default_value, tooltip=None):
 
 st.sidebar.header("1. Portfolio Inputs")
 n_homes = st.sidebar.number_input("Number of Homes", value=100, step=1)
-avg_premium = currency_input("Avg Premium per Home", 4200)
-avg_tiv = currency_input("Avg TIV per Home", 1000000)
+avg_premium = currency_input("Avg Premium per Home", 3000)
+avg_tiv = currency_input("Avg TIV per Home", 500000)
 
 expense_ratio_input = st.sidebar.number_input("Expense Ratio (%)", value=15.0, step=0.1, format="%.2f")
 expense_ratio = expense_ratio_input / 100
@@ -226,7 +226,7 @@ mdr_mitigated = mdr_mitigated_input / 100
 
 st.sidebar.markdown("---")
 st.sidebar.header("3. Faura Program Inputs")
-faura_cost = currency_input("Faura Cost per Home", 30)
+faura_cost = currency_input("Faura Cost per Home", 20)
 conversion_input = st.sidebar.number_input("Conversion Rate (%)", value=20.0, step=1.0)
 conversion_rate = conversion_input / 100
 gift_card = currency_input("Gift Card Incentive", 50)
