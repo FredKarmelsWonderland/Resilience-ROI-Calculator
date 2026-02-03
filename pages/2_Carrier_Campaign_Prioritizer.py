@@ -52,17 +52,20 @@ mitigation_incentive = 300
 # --- PHILOSOPHY & SCENARIO SECTION ---
 st.markdown("### The Pilot Scenario")
 
-c1 = st.columns([1, 1])
-with c1:
-    st.info(f"""
-    1.  Carrier provides a list of **{total_homes_count:,} homes** that we screen at **${screening_cost_per}/address**, ranking them by underwriting risk.
-    2.  We target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**, generating personalized resilience reports with a **follow on** home-feature survey.
-    
-    **The "Pay-for-Performance" Funnel:**
-    * **Engagement:** Homeowners who fill out the home-feature survey get **${psa_incentive}**.
-    * **Mitigation:** Homeowners who mitigate risk that was previously unmitigated get an additional **${mitigation_incentive}**.
-    * *Result:* Your budget dollars primarily pay for risk-reducing performance, not just outreach.
-    """)
+# UPDATED: Full width info box (Equation removed from here)
+st.info(f"""
+1.  Carrier provides a list of **{total_homes_count:,} homes** that we screen at **${screening_cost_per}/address**, ranking them by underwriting risk.
+2.  We target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**, generating personalized resilience reports with a **follow on** home-feature survey.
+
+**The "Pay-for-Performance" Funnel:**
+* **Engagement:** Homeowners who fill out the home-feature survey get **${psa_incentive}**.
+* **Mitigation:** Homeowners who mitigate risk that was previously unmitigated get an additional **${mitigation_incentive}**.
+* *Result:* Your budget dollars primarily pay for risk-reducing performance, not just outreach.
+""")
+
+# ==============================================================================
+#  DATA ENGINE
+# ==============================================================================
 
 @st.cache_data
 def generate_portfolio(n):
@@ -270,7 +273,7 @@ fig.add_vline(x=budget_count/len(df), line_dash="dash", line_color="grey", annot
 fig.update_layout(height=450, xaxis_tickformat=".0%", yaxis_tickprefix="$", yaxis_title="Cumulative Gross Expected Loss ($)")
 st.plotly_chart(fig, use_container_width=True)
 
-# --- 6. FOOTER: EQUATION DISPLAY (MOVED HERE) ---
+# --- 6. FOOTER: EQUATION DISPLAY ---
 st.markdown("---")
 st.subheader("🧮 The Logic Behind the Score")
 st.markdown(r"""
