@@ -71,11 +71,11 @@ with c2:
 def generate_portfolio(n):
     np.random.seed(42)
     
-    # 1. TIV ($250k - $4M) -- UPDATED CAP
+    # 1. TIV ($250k - $3M) -- UPDATED CAP
     # This targets the "Mass Affluent" / "Middle Market" sweet spot.
-    # We maintain the lognormal distribution but clamp strictly at $4M.
+    # We maintain the lognormal distribution but clamp strictly at $3M.
     tiv = np.random.lognormal(mean=13.5, sigma=0.6, size=n)
-    tiv = np.clip(tiv, 250000, 4000000)
+    tiv = np.clip(tiv, 250000, 3000000)
     
     # 2. Fire Probability (0.1% to 2.5%)
     prob_fire = np.random.beta(2, 50, size=n) 
