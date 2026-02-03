@@ -42,28 +42,28 @@ psa_incentive = 50.0
 mitigation_incentive = 300.0
 
 # --- PHILOSOPHY & SCENARIO SECTION ---
+st.markdown("### The Pilot Scenario")
 
 c1, c2 = st.columns([2, 1])
 with c1:
     st.info(f"""
-    **Pilot Scenario Example:**
+    **The Constraints:**
     1.  Carrier provides a raw list of **{total_homes_count:,} homes** with address, premium, TIV.
     2.  **Step 1 (Screening):** We screen *all* {total_homes_count:,} homes at **${screening_cost_per}/address** to generate our ranking/targeting scores.
-    3.  **Step 2 (Outreach):** We target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**, generating personalized resilience reports with a follow on home-feature survey.
-    
+    3.  **Step 2 (Outreach):** We target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**.
     
     **The "Pay-for-Performance" Funnel:**
-    * **25% Engagement:** Homeowners who fill out the home feature survey get **${psa_incentive}**.
-    * **15% Mitigation:** Homeowners who mitigate risk that was previously unmitigated get an additional **${mitigation_incentive}**.
-    * *Result:* Your budget dollars primarily pay for performance, not just outreach.
+    * **25% Engagement:** Homeowners who fill out the survey get **${psa_incentive}**.
+    * **15% Mitigation:** Homeowners who verify risk reduction get an additional **${mitigation_incentive}**.
     """)
 with c2:
-    st.markdown("""
-    **The Ranking Algorithm:**
+    st.markdown(r"""
+    **The "Ignition" Algorithm:**
     $$
-    \\text{Value} = P_{\\text{Wildfire}} \\times \\text{TIV} \\times \\text{MDR}
+    \text{Risk} = \underbrace{P(\text{Reach})}_\text{Fire Prob} \times \underbrace{P(\text{Ignition})}_\text{Susceptibility} \times \text{TIV}
     $$
-    *(Where MDR is proxied by 100 - QA Score)*
+    *Most carriers assume Ignition is 100%.*
+    *Faura calculates specific Susceptibility via QA Score.*
     """)
 
 # --- 1. DATA GENERATION ---
@@ -75,11 +75,11 @@ def generate_portfolio(n):
     tiv = np.random.lognormal(mean=13.5, sigma=0.6, size=n)
     tiv = np.clip(tiv, 250000, 5000000)
     
-    # 2. Fire Probability (0.1% to 2.5%)
+    # 2. Fire Probability (0.1% to 2.5%) - "P(Reach)"
     prob_fire = np.random.beta(2, 50, size=n) 
     prob_fire = np.clip(prob_fire, 0.001, 0.025)
     
-    # 3. Resilience Score (The MDR Proxy)
+    # 3. Resilience Score (The Secret Sauce)
     qa_score = np.random.normal(60, 15, size=n)
     qa_score = np.clip(qa_score, 10, 95)
     
@@ -93,8 +93,13 @@ def generate_portfolio(n):
     # --- METRICS ---
     rate = np.random.uniform(0.002, 0.008, size=n)
     df["Annual_Premium"] = df["TIV"] * rate
-    df["MDR_Est"] = ((100 - df["Resilience_Score"]) / 100).clip(lower=0.10)
-    df["Expected_Loss_Annual"] = df["TIV"] * df["Fire_Prob"] * df["MDR_Est"]
+    
+    # RENAMED: MDR -> Susceptibility Factor
+    # Logic: 100 Score = 10% Susceptibility (Embers might still ignite). 0 Score = 100% Susceptibility.
+    df["Susceptibility"] = ((100 - df["Resilience_Score"]) / 100).clip(lower=0.10)
+    
+    # GROSS EXPECTED LOSS
+    df["Expected_Loss_Annual"] = df["TIV"] * df["Fire_Prob"] * df["Susceptibility"]
     df["Underwriting_Gap"] = df["Expected_Loss_Annual"] - df["Annual_Premium"]
 
     return df
@@ -159,15 +164,15 @@ st.subheader(f"📋 Campaign ROI Projection")
 st.markdown("""
 **Scenario Assumptions:**
 * **85%** Status Quo (Non-Responsive)
-* **10%** Reduce MDR by 50% (Halved)
-* **5%** Reduce MDR by 75% (Quartered)
+* **10%** Reduce Susceptibility by 50% (Halved Ignition Prob.)
+* **5%** Reduce Susceptibility by 75% (Quartered Ignition Prob.)
 """)
 
 # A. Apply Simulation Logic
 target_df = res_faura['Selection'].copy()
 np.random.seed(99) 
 
-outcomes = ["Status Quo", "MDR Halved", "MDR Quartered"]
+outcomes = ["Status Quo", "Susceptibility Halved", "Susceptibility Quartered"]
 multipliers = [1.0, 0.5, 0.25]
 probs = [0.85, 0.10, 0.05] 
 
@@ -182,14 +187,10 @@ total_savings = target_df["Annual_Savings"].sum()
 # COST CALCULATION
 # 1. Screening: All Homes
 c_screen = len(df) * screening_cost_per
-
 # 2. Outreach: Target Homes (Fixed Fee)
 c_engage = budget_count * outreach_cost_per
-
-# 3. PSA Incentive: 25% of Targets
+# 3. Incentives
 c_psa = (budget_count * 0.25) * psa_incentive
-
-# 4. Mitigation Incentive: 15% of Targets
 c_mitigation = (budget_count * 0.15) * mitigation_incentive
 
 total_program_cost = c_screen + c_engage + c_psa + c_mitigation
@@ -222,12 +223,12 @@ download_df["New_Expected_Loss"] = download_df["New_Expected_Loss"].apply(format
 download_df["Annual_Savings"] = download_df["Annual_Savings"].apply(format_currency_csv)
 download_df["Fire_Prob"] = download_df["Fire_Prob"].apply(format_pct_csv)
 download_df["Resilience_Score"] = download_df["Resilience_Score"].round(0).astype(int)
-download_df["MDR_Est"] = download_df["MDR_Est"].round(2)
+download_df["Susceptibility"] = download_df["Susceptibility"].round(2)
 
-cols_out = ["Policy ID", "TIV", "Fire_Prob", "Resilience_Score", "MDR_Est", "Expected_Loss_Annual", "Annual_Premium", "Outcome_Type", "New_Expected_Loss", "Annual_Savings"]
+cols_out = ["Policy ID", "TIV", "Fire_Prob", "Resilience_Score", "Susceptibility", "Expected_Loss_Annual", "Annual_Premium", "Outcome_Type", "New_Expected_Loss", "Annual_Savings"]
 st.download_button("📥 Download Simulation (CSV)", download_df[cols_out].to_csv(index=False), "faura_simulation.csv")
 
-# F. Display Table (Using same formatting)
+# F. Display Table
 target_df["Display_TIV"] = target_df["TIV"].apply(format_currency_csv)
 target_df["Display_Loss_SQ"] = target_df["Expected_Loss_Annual"].apply(format_currency_csv)
 target_df["Display_Loss_New"] = target_df["New_Expected_Loss"].apply(format_currency_csv)
