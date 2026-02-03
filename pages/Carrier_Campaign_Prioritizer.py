@@ -47,7 +47,6 @@ st.markdown("### The Pilot Scenario")
 c1, c2 = st.columns([2, 1])
 with c1:
     st.info(f"""
-    **Process:**
     1.  Carrier provides a raw list of **{total_homes_count:,} homes** with address, premium, TIV.
     2.  **Step 1 (Screening):** We screen *all* {total_homes_count:,} homes at **${screening_cost_per}/address** to algorithmically generate our ranking/targeting funnel.
     3.  **Step 2 (Outreach):** We target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**, generating personalized resilience reports with a follow on home-feature survey.
