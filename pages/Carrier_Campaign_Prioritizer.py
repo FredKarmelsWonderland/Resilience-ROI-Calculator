@@ -32,14 +32,14 @@ st.title("🎯 Pure Risk Prioritization Engine")
 st.sidebar.header("Simulation Parameters")
 
 st.sidebar.subheader("1. Portfolio Scope")
-total_homes_count = st.sidebar.slider("Total Portfolio Size (to Screen)", 1000, 10000, 1000, step=500, help="The total number of homes we will run data screening on.")
-budget_count = st.sidebar.slider("Pilot Target Size", 50, 500, 200, step=50, help="The number of highest-risk homes we will actively engage.")
+total_homes_count = st.sidebar.slider("Total Portfolio Size (to Screen)", 1000, 10000, 1000, step=500)
+budget_count = st.sidebar.slider("Pilot Target Size", 50, 500, 200, step=50)
 
 st.sidebar.subheader("2. Program Costs")
 screening_cost_per = st.sidebar.number_input("Screening Cost per Home ($)", value=3)
 outreach_cost_per = st.sidebar.number_input("Outreach Cost per Home ($)", value=30)
-psa_incentive = st.sidebar.number_input("PSA Incentive ($)", value=50)
-mitigation_incentive = st.sidebar.number_input("Mitigation Incentive ($)", value=300)
+psa_incentive = st.sidebar.number_input("PSA Engagement Reward ($)", value=50)
+mitigation_incentive = st.sidebar.number_input("Mitigation Reward ($)", value=300)
 
 # --- PHILOSOPHY & SCENARIO SECTION ---
 st.markdown("### The Pilot Scenario")
@@ -48,13 +48,15 @@ c1, c2 = st.columns([2, 1])
 with c1:
     st.info(f"""
     **The Constraints:**
-    1.  Carrier provides a raw list of **{total_homes_count:,} homes**.
-    2.  **Step 1 (Screening):** We screen *all* homes at **${screening_cost_per}/address** to generate risk scores.
-    3.  **Step 2 (Outreach):** We target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**.
+    1.  Carrier provides a raw list of **{total_homes_count:,} homes** with address, premium, TIV.
+    2.  **Step 1 (Screening):** We screen *all* {total_homes_count:,} homes at **${screening_cost_per}/address** to generate our ranking/targeting scores.
+    3.  **Step 2 (Outreach):** We target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**, generating personalized resilience reports with a follow on home-feature survey.
+    
     
     **The "Pay-for-Performance" Funnel:**
-    * **25% Engagement:** Homeowners who fill out the PSA get **${psa_incentive}**.
-    * **15% Mitigation:** Homeowners who verify risk reduction get an additional **${mitigation_incentive}**.
+    * **25% Engagement:** Homeowners who fill out the home feature survey get **${psa_incentive}**.
+    * **15% Mitigation:** Homeowners who mitigate risk that was previously unmitigated get an additional **${mitigation_incentive}**.
+    * *Result:* Your budget dollars primarily pay for performance, not just outreach.
     """)
 with c2:
     st.markdown("""
@@ -169,21 +171,30 @@ target_df["Loss_Multiplier"] = target_df["Outcome_Type"].replace(dict(zip(outcom
 target_df["New_Expected_Loss"] = target_df["Expected_Loss_Annual"] * target_df["Loss_Multiplier"]
 target_df["Annual_Savings"] = target_df["Expected_Loss_Annual"] - target_df["New_Expected_Loss"]
 
-# B. Aggregate Savings & ROI
+# B. Aggregate Savings & ROI (Variable Cost Model)
 total_savings = target_df["Annual_Savings"].sum()
 
+# COST CALCULATION
+# 1. Screening: All Homes (1000 * $3)
 c_screen = len(df) * screening_cost_per
-c_outreach = budget_count * outreach_cost_per
+
+# 2. Outreach: Target Homes (200 * $30)
+c_engage = budget_count * outreach_cost_per
+
+# 3. PSA Incentive: 25% of Targets
 c_psa = (budget_count * 0.25) * psa_incentive
+
+# 4. Mitigation Incentive: 15% of Targets
 c_mitigation = (budget_count * 0.15) * mitigation_incentive
-total_program_cost = c_screen + c_outreach + c_psa + c_mitigation
+
+total_program_cost = c_screen + c_engage + c_psa + c_mitigation
 
 roi = (total_savings - total_program_cost) / total_program_cost if total_program_cost > 0 else 0
 
 # C. Summary Metrics
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Projected Annual Savings", f"${total_savings:,.0f}")
-m2.metric("Total Program Cost", f"${total_program_cost:,.0f}", help=f"Screening (${c_screen:,.0f}) + Outreach (${c_outreach:,.0f}) + Incentives")
+m2.metric("Total Program Cost", f"${total_program_cost:,.0f}", help=f"Screening (${c_screen:,.0f}) + Outreach (${c_engage:,.0f}) + Performance Incentives")
 m3.metric("Net Program ROI", f"{roi:.1f}x")
 denom = len(target_df[target_df['Outcome_Type'] != 'Status Quo'])
 m4.metric("Avg Savings per Success", f"${total_savings / denom:,.0f}" if denom > 0 else "$0")
