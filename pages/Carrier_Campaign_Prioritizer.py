@@ -32,8 +32,8 @@ st.title("🎯 Pure Risk Prioritization Engine")
 st.sidebar.header("Simulation Parameters")
 
 st.sidebar.subheader("1. Portfolio Scope")
-total_homes_count = st.sidebar.slider("Total Portfolio Size (to Screen)", 100, 10000, 1000, step=500)
-budget_count = st.sidebar.slider("Pilot Target Size", 50, 10000, 200, step=50)
+total_homes_count = st.sidebar.slider("Total Portfolio Size (to Screen)", 0, 1000, 100, step=100)
+budget_count = st.sidebar.slider("Pilot Target Size", 0, 1000, 100, step=100)
 
 # --- FIXED COSTS (Hidden from Sidebar) ---
 screening_cost_per = 3.0
