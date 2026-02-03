@@ -32,10 +32,11 @@ st.title("🎯 Pure Risk Prioritization Engine")
 st.sidebar.header("Simulation Parameters")
 
 st.sidebar.subheader("1. Portfolio Scope")
-total_homes_count = st.sidebar.slider("Total Portfolio Size (to Screen)", 0, 1000, 100, step=100)
-budget_count = st.sidebar.slider("Pilot Target Size", 0, 1000, 100, step=100)
+# Updated per user snippet (Min 100 to prevent crash)
+total_homes_count = st.sidebar.slider("Total Portfolio Size (to Screen)", 100, 1000, 100, step=100)
+budget_count = st.sidebar.slider("Pilot Target Size", 10, 1000, 100, step=10)
 
-# --- FIXED COSTS (Hidden from Sidebar) ---
+# --- FIXED COSTS ---
 screening_cost_per = 3.0
 outreach_cost_per = 30.0
 psa_incentive = 50.0
@@ -46,6 +47,7 @@ st.markdown("### The Pilot Scenario")
 
 c1, c2 = st.columns([2, 1])
 with c1:
+    # UPDATED TEXT SNIPPET
     st.info(f"""
     1.  Carrier provides a raw list of **{total_homes_count:,} homes** with address, premium, TIV.
     2.  **Step 1 (Screening):** We screen *all* {total_homes_count:,} homes at **${screening_cost_per}/address** to algorithmically generate our ranking/targeting funnel.
@@ -58,7 +60,7 @@ with c1:
     """)
 with c2:
     st.markdown(r"""
-    **The Ranking Algorithm:**
+    **The "Ignition" Algorithm:**
     $$
     \text{Risk} = \text{TIV} \times P(\text{Fire}) \times P(\text{Ignition})
     $$
@@ -75,11 +77,11 @@ def generate_portfolio(n):
     tiv = np.random.lognormal(mean=13.5, sigma=0.6, size=n)
     tiv = np.clip(tiv, 250000, 5000000)
     
-    # 2. Fire Probability (0.1% to 2.5%) - "P(Reach)"
+    # 2. Fire Probability (0.1% to 2.5%)
     prob_fire = np.random.beta(2, 50, size=n) 
     prob_fire = np.clip(prob_fire, 0.001, 0.025)
     
-    # 3. Resilience Score (The Secret Sauce)
+    # 3. Resilience Score
     qa_score = np.random.normal(60, 15, size=n)
     qa_score = np.clip(qa_score, 10, 95)
     
@@ -94,11 +96,10 @@ def generate_portfolio(n):
     rate = np.random.uniform(0.002, 0.008, size=n)
     df["Annual_Premium"] = df["TIV"] * rate
     
-    # RENAMED: MDR -> Susceptibility Factor
-    # Logic: 100 Score = 10% Susceptibility (Embers might still ignite). 0 Score = 100% Susceptibility.
+    # Susceptibility Factor (100 - Score)
     df["Susceptibility"] = ((100 - df["Resilience_Score"]) / 100).clip(lower=0.10)
     
-    # GROSS EXPECTED LOSS
+    # Gross Expected Loss
     df["Expected_Loss_Annual"] = df["TIV"] * df["Fire_Prob"] * df["Susceptibility"]
     df["Underwriting_Gap"] = df["Expected_Loss_Annual"] - df["Annual_Premium"]
 
@@ -112,7 +113,9 @@ df["Rank_Random"] = np.random.rand(len(df))
 
 # --- 3. RUN SIMULATION ---
 def evaluate_campaign(rank_col, name):
-    campaign = df.sort_values(rank_col, ascending=False).head(budget_count)
+    # Safe slicing in case budget > total
+    safe_budget = min(budget_count, len(df))
+    campaign = df.sort_values(rank_col, ascending=False).head(safe_budget)
     return {
         "Name": name,
         "Total Risk Targeted": campaign["Expected_Loss_Annual"].sum(),
@@ -123,42 +126,7 @@ def evaluate_campaign(rank_col, name):
 res_faura = evaluate_campaign("Rank_Risk", "Faura Risk Prioritized")
 res_rand  = evaluate_campaign("Rank_Random", "Random Outreach (Control)")
 
-# --- 4. DASHBOARD METRICS ---
-st.subheader("📊 The Value of Data Screening")
-c1, c2, c3, c4 = st.columns(4)
-
-risk_diff = res_faura["Total Risk Targeted"] - res_rand["Total Risk Targeted"]
-risk_lift_pct = (risk_diff / res_rand["Total Risk Targeted"]) * 100
-
-c1.metric("Gross Risk Targeted (Faura)", f"${res_faura['Total Risk Targeted']:,.0f}", delta=f"+{risk_lift_pct:.0f}% vs Random")
-c2.metric("Gross Risk Targeted (Random)", f"${res_rand['Total Risk Targeted']:,.0f}", delta="Baseline", delta_color="off")
-c3.metric("Risk Intelligence Value", f"${risk_diff:,.0f}", help="The extra risk exposure captured purely by using Faura's sorting algorithm vs random selection.")
-c4.metric("Avg Premium (Target Group)", f"${res_faura['Selection']['Annual_Premium'].mean():,.0f}")
-
-# --- 5. LIFT CHART ---
-st.markdown("---")
-st.subheader("📈 Risk Capture Curve ($ Exposure)")
-
-def get_lift_curve(rank_col, name):
-    sorted_df = df.sort_values(rank_col, ascending=False).reset_index(drop=True)
-    sorted_df["Cum_Risk"] = sorted_df["Expected_Loss_Annual"].cumsum()
-    sorted_df["% Homes Targeted"] = (sorted_df.index + 1) / len(sorted_df)
-    sorted_df["Strategy"] = name
-    return sorted_df[["% Homes Targeted", "Cum_Risk", "Strategy"]]
-
-lift_data = pd.concat([
-    get_lift_curve("Rank_Risk", "Faura Prioritized"),
-    get_lift_curve("Rank_Random", "Random Outreach")
-])
-
-fig = px.line(lift_data, x="% Homes Targeted", y="Cum_Risk", color="Strategy",
-              color_discrete_map={"Faura Prioritized": "#00CC96", "Random Outreach": "#EF553B"})
-
-fig.add_vline(x=budget_count/len(df), line_dash="dash", line_color="grey", annotation_text="Pilot Budget")
-fig.update_layout(height=450, xaxis_tickformat=".0%", yaxis_tickprefix="$", yaxis_title="Cumulative Gross Expected Loss ($)")
-st.plotly_chart(fig, use_container_width=True)
-
-# --- 6. CAMPAIGN SIMULATION ---
+# --- 4. CAMPAIGN ROI SECTION (MOVED UP) ---
 st.markdown("---")
 st.subheader(f"📋 Campaign ROI Projection")
 st.markdown("""
@@ -185,10 +153,14 @@ target_df["Annual_Savings"] = target_df["Expected_Loss_Annual"] - target_df["New
 total_savings = target_df["Annual_Savings"].sum()
 
 # COST CALCULATION
+# 1. Screening: All Homes
 c_screen = len(df) * screening_cost_per
-c_engage = budget_count * outreach_cost_per
-c_psa = (budget_count * 0.25) * psa_incentive
-c_mitigation = (budget_count * 0.15) * mitigation_incentive
+# 2. Outreach: Target Homes (Fixed Fee)
+c_engage = len(target_df) * outreach_cost_per
+# 3. Incentives
+c_psa = (len(target_df) * 0.25) * psa_incentive
+c_mitigation = (len(target_df) * 0.15) * mitigation_incentive
+
 total_program_cost = c_screen + c_engage + c_psa + c_mitigation
 
 roi = (total_savings - total_program_cost) / total_program_cost if total_program_cost > 0 else 0
@@ -210,27 +182,12 @@ def format_currency_csv(val):
 def format_pct_csv(val):
     return f"{val*100:.2f}%"
 
-# E. Download Logic
-download_df = target_df.copy()
-download_df["TIV"] = download_df["TIV"].apply(format_currency_csv)
-download_df["Expected_Loss_Annual"] = download_df["Expected_Loss_Annual"].apply(format_currency_csv)
-download_df["Annual_Premium"] = download_df["Annual_Premium"].apply(format_currency_csv)
-download_df["New_Expected_Loss"] = download_df["New_Expected_Loss"].apply(format_currency_csv)
-download_df["Annual_Savings"] = download_df["Annual_Savings"].apply(format_currency_csv)
-download_df["Fire_Prob"] = download_df["Fire_Prob"].apply(format_pct_csv)
-download_df["Susceptibility"] = download_df["Susceptibility"].round(2)
-
-cols_out = ["Policy ID", "TIV", "Fire_Prob", "Susceptibility", "Expected_Loss_Annual", "Annual_Premium", "Outcome_Type", "New_Expected_Loss", "Annual_Savings"]
-st.download_button("📥 Download Simulation (CSV)", download_df[cols_out].to_csv(index=False), "faura_simulation.csv")
-
-# F. Display Table
+# E. Display Table
 target_df["Display_TIV"] = target_df["TIV"].apply(format_currency_csv)
 target_df["Display_Loss_SQ"] = target_df["Expected_Loss_Annual"].apply(format_currency_csv)
 target_df["Display_Loss_New"] = target_df["New_Expected_Loss"].apply(format_currency_csv)
 target_df["Display_Prem"] = target_df["Annual_Premium"].apply(format_currency_csv)
 target_df["Display_Gap"] = (target_df["Expected_Loss_Annual"] - target_df["Annual_Premium"]).apply(format_currency_csv)
-
-# Explicitly create display columns for probabilities
 target_df["Display_Prob"] = (target_df["Fire_Prob"] * 100).map("{:.2f}%".format)
 target_df["Display_Ignition"] = target_df["Susceptibility"].map("{:.2f}".format)
 
@@ -249,3 +206,51 @@ st.dataframe(
     },
     use_container_width=True
 )
+
+# E. Download Logic
+download_df = target_df.copy()
+download_df["TIV"] = download_df["TIV"].apply(format_currency_csv)
+download_df["Expected_Loss_Annual"] = download_df["Expected_Loss_Annual"].apply(format_currency_csv)
+download_df["Annual_Premium"] = download_df["Annual_Premium"].apply(format_currency_csv)
+download_df["New_Expected_Loss"] = download_df["New_Expected_Loss"].apply(format_currency_csv)
+download_df["Annual_Savings"] = download_df["Annual_Savings"].apply(format_currency_csv)
+download_df["Fire_Prob"] = download_df["Fire_Prob"].apply(format_pct_csv)
+download_df["Susceptibility"] = download_df["Susceptibility"].round(2)
+
+cols_out = ["Policy ID", "TIV", "Fire_Prob", "Susceptibility", "Expected_Loss_Annual", "Annual_Premium", "Outcome_Type", "New_Expected_Loss", "Annual_Savings"]
+st.download_button("📥 Download Simulation (CSV)", download_df[cols_out].to_csv(index=False), "faura_simulation.csv")
+
+# --- 5. "WHY THIS WORKS" SECTION (MOVED DOWN) ---
+st.markdown("---")
+st.subheader("📊 Deep Dive: The Value of Data Screening")
+st.markdown("*Why not just randomly select homes? Because risk is not evenly distributed.*")
+
+c1, c2, c3, c4 = st.columns(4)
+
+risk_diff = res_faura["Total Risk Targeted"] - res_rand["Total Risk Targeted"]
+risk_lift_pct = (risk_diff / res_rand["Total Risk Targeted"]) * 100 if res_rand["Total Risk Targeted"] > 0 else 0
+
+c1.metric("Gross Risk Targeted (Faura)", f"${res_faura['Total Risk Targeted']:,.0f}", delta=f"+{risk_lift_pct:.0f}% vs Random")
+c2.metric("Gross Risk Targeted (Random)", f"${res_rand['Total Risk Targeted']:,.0f}", delta="Baseline", delta_color="off")
+c3.metric("Risk Intelligence Value", f"${risk_diff:,.0f}", help="The extra risk exposure captured purely by using Faura's sorting algorithm vs random selection.")
+c4.metric("Avg Premium (Target Group)", f"${res_faura['Selection']['Annual_Premium'].mean():,.0f}")
+
+# Lift Chart
+def get_lift_curve(rank_col, name):
+    sorted_df = df.sort_values(rank_col, ascending=False).reset_index(drop=True)
+    sorted_df["Cum_Risk"] = sorted_df["Expected_Loss_Annual"].cumsum()
+    sorted_df["% Homes Targeted"] = (sorted_df.index + 1) / len(sorted_df)
+    sorted_df["Strategy"] = name
+    return sorted_df[["% Homes Targeted", "Cum_Risk", "Strategy"]]
+
+lift_data = pd.concat([
+    get_lift_curve("Rank_Risk", "Faura Prioritized"),
+    get_lift_curve("Rank_Random", "Random Outreach")
+])
+
+fig = px.line(lift_data, x="% Homes Targeted", y="Cum_Risk", color="Strategy",
+              color_discrete_map={"Faura Prioritized": "#00CC96", "Random Outreach": "#EF553B"})
+
+fig.add_vline(x=budget_count/len(df), line_dash="dash", line_color="grey", annotation_text="Pilot Budget")
+fig.update_layout(height=450, xaxis_tickformat=".0%", yaxis_tickprefix="$", yaxis_title="Cumulative Gross Expected Loss ($)")
+st.plotly_chart(fig, use_container_width=True)
