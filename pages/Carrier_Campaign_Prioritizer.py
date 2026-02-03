@@ -27,10 +27,23 @@ if not check_password():
 
 # --- MAIN CONTENT ---
 st.title("🎯 Pure Risk Prioritization Engine")
-st.markdown("""
-**The Philosophy:** Behavioral proxies are unreliable. 
-**The Solution:** Prioritize strictly by **Gross Expected Loss**. Target the properties where the carrier has the most to lose.
-""")
+
+# --- PHILOSOPHY & ALGORITHM SECTION ---
+st.markdown("### The Methodology")
+c1, c2 = st.columns([2, 1])
+with c1:
+    st.info("""
+    **The Philosophy:** Behavioral proxies (email opens, tenure) are unreliable.  
+    **The Solution:** Prioritize strictly by **Gross Expected Loss**. Target the properties where the carrier has the most to lose.
+    """)
+with c2:
+    st.markdown("""
+    **The Algorithm:**
+    $$
+    \\text{Value} = P_{\\text{Wildfire}} \\times \\text{TIV} \\times \\text{MDR}
+    $$
+    *(Where MDR is proxied by 100 - QA Score)*
+    """)
 
 # --- 1. DATA GENERATION ---
 @st.cache_data
@@ -56,12 +69,23 @@ def generate_portfolio(n=1000):
         "Resilience_Score": qa_score,
     })
     
+    # --- METRIC: ANNUAL PREMIUM (The "Revenue") ---
+    # Logic: Premiums in CA are often "suppressed" relative to risk.
+    # We simulate a rate of ~0.2% to 0.8% of TIV (often lower than the actual risk).
+    rate = np.random.uniform(0.002, 0.008, size=n)
+    df["Annual_Premium"] = df["TIV"] * rate
+    
     # --- METRIC: ESTIMATED MDR (Mean Damage Ratio) ---
     df["MDR_Est"] = ((100 - df["Resilience_Score"]) / 100).clip(lower=0.10)
 
     # --- METRIC: GROSS EXPECTED LOSS (ANNUAL) ---
     df["Expected_Loss_Annual"] = df["TIV"] * df["Fire_Prob"] * df["MDR_Est"]
     
+    # --- METRIC: NET UNDERWRITING GAP ---
+    # Gap = Loss - Premium. 
+    # Positive = Unprofitable (Bleeding Money). Negative = Profitable.
+    df["Underwriting_Gap"] = df["Expected_Loss_Annual"] - df["Annual_Premium"]
+
     return df
 
 # --- SIDEBAR ---
@@ -80,6 +104,7 @@ def evaluate_campaign(rank_col, name):
     return {
         "Name": name,
         "Total Risk Targeted": campaign["Expected_Loss_Annual"].sum(),
+        "Total Gap Targeted": campaign["Underwriting_Gap"].sum(),
         "Selection": campaign
     }
 
@@ -88,14 +113,15 @@ res_rand  = evaluate_campaign("Rank_Random", "Random Outreach (Control)")
 
 # --- 4. DASHBOARD METRICS ---
 st.subheader("📊 Prioritization Impact")
-c1, c2, c3 = st.columns(3)
+c1, c2, c3, c4 = st.columns(4)
 
 risk_lift = (res_faura["Total Risk Targeted"] - res_rand["Total Risk Targeted"])
 risk_lift_pct = (risk_lift / res_rand["Total Risk Targeted"]) * 100
 
-c1.metric("Risk Exposure Targeted (Faura)", f"${res_faura['Total Risk Targeted']:,.0f}", delta=f"+{risk_lift_pct:.0f}% Lift")
-c2.metric("Risk Exposure Targeted (Random)", f"${res_rand['Total Risk Targeted']:,.0f}", delta="Baseline", delta_color="off")
-c3.metric("Campaign Size", f"{budget_count} Homes")
+c1.metric("Gross Risk Targeted", f"${res_faura['Total Risk Targeted']:,.0f}", delta=f"+{risk_lift_pct:.0f}% Lift")
+c2.metric("Net Underwriting Gap", f"${res_faura['Total Gap Targeted']:,.0f}", help="The total 'Profitability Bleed' (Loss - Premium) in this target group.")
+c3.metric("Avg Premium per Home", f"${res_faura['Selection']['Annual_Premium'].mean():,.0f}")
+c4.metric("Campaign Size", f"{budget_count} Homes")
 
 # --- 5. LIFT CHART ---
 st.markdown("---")
@@ -121,7 +147,7 @@ fig.add_vline(x=budget_count/len(df), line_dash="dash", line_color="grey", annot
 fig.update_layout(height=400, xaxis_tickformat=".0%", yaxis_tickformat=".0%")
 st.plotly_chart(fig, use_container_width=True)
 
-# --- 6. TARGET LIST & SIMULATION ---
+# --- 6. CAMPAIGN SIMULATION ---
 st.markdown("---")
 st.subheader(f"📋 Campaign Projection (Simulated Results)")
 st.markdown("""
@@ -133,16 +159,12 @@ st.markdown("""
 
 # A. Apply Simulation Logic
 target_df = res_faura['Selection'].copy()
-
-# Set seed for consistency in demo
 np.random.seed(99) 
 
-# Assign outcomes
 outcomes = ["Status Quo", "MDR Halved", "MDR Quartered"]
 multipliers = [1.0, 0.5, 0.25]
 probs = [0.85, 0.10, 0.05]
 
-# Randomly assign outcome to each row
 target_df["Outcome_Type"] = np.random.choice(outcomes, size=len(target_df), p=probs)
 target_df["Loss_Multiplier"] = target_df["Outcome_Type"].replace(dict(zip(outcomes, multipliers)))
 
@@ -150,20 +172,20 @@ target_df["Loss_Multiplier"] = target_df["Outcome_Type"].replace(dict(zip(outcom
 target_df["New_Expected_Loss"] = target_df["Expected_Loss_Annual"] * target_df["Loss_Multiplier"]
 target_df["Annual_Savings"] = target_df["Expected_Loss_Annual"] - target_df["New_Expected_Loss"]
 
-# B. Calculate Aggregate Savings
+# B. Aggregate Savings
 total_savings = target_df["Annual_Savings"].sum()
-program_cost = budget_count * 150 # Assumption: $150 per home engagement cost
+program_cost = budget_count * 150 
 roi = (total_savings - program_cost) / program_cost if program_cost > 0 else 0
 
-# C. Display Summary Metrics
+# C. Summary Metrics
 m1, m2, m3, m4 = st.columns(4)
-m1.metric("Projected Annual Savings", f"${total_savings:,.0f}", help="Total reduction in expected loss based on simulation.")
-m2.metric("Program ROI", f"{roi:.1f}x", help="Assuming $150 cost per home engaged")
-m3.metric("Homes Improved", f"{len(target_df[target_df['Outcome_Type'] != 'Status Quo'])}", help="15% of target list")
-m4_denom = len(target_df[target_df['Outcome_Type'] != 'Status Quo'])
-m4.metric("Avg Savings per Success", f"${total_savings / m4_denom:,.0f}" if m4_denom > 0 else "$0")
+m1.metric("Projected Annual Savings", f"${total_savings:,.0f}", help="Reduction in Gross Expected Loss.")
+m2.metric("Program ROI", f"{roi:.1f}x", help="Based on $150 engagement cost.")
+m3.metric("Homes Improved", f"{len(target_df[target_df['Outcome_Type'] != 'Status Quo'])}")
+denom = len(target_df[target_df['Outcome_Type'] != 'Status Quo'])
+m4.metric("Avg Savings per Success", f"${total_savings / denom:,.0f}" if denom > 0 else "$0")
 
-# D. Format Table for Display
+# D. Format Table (Sort First, Then Format)
 def format_currency(val):
     if val >= 1_000_000: return f"${val/1_000_000:.2f}M"
     else: return f"${val/1_000:.0f}K"
@@ -171,28 +193,36 @@ def format_currency(val):
 target_df["Display_TIV"] = target_df["TIV"].apply(format_currency)
 target_df["Display_Loss_SQ"] = target_df["Expected_Loss_Annual"].apply(format_currency)
 target_df["Display_Loss_New"] = target_df["New_Expected_Loss"].apply(format_currency)
+target_df["Display_Prem"] = target_df["Annual_Premium"].apply(format_currency)
 target_df["Display_Prob"] = target_df["Fire_Prob"] * 100
 
-# FIX IS HERE: SORT BEFORE SELECTING COLUMNS
+# NEW: Calculate Net Loss Gap (Loss - Premium) for display
+target_df["Display_Gap"] = (target_df["Expected_Loss_Annual"] - target_df["Annual_Premium"]).apply(format_currency)
+
 st.dataframe(
-    target_df.sort_values("Annual_Savings", ascending=False)[["Policy ID", "Display_TIV", "Display_Prob", "Display_Loss_SQ", "Outcome_Type", "Display_Loss_New"]],
+    target_df.sort_values("Annual_Savings", ascending=False)[
+        ["Policy ID", "Display_TIV", "Display_Prob", "Display_Prem", "Display_Loss_SQ", "Display_Gap", "Outcome_Type", "Display_Loss_New"]
+    ],
     column_config={
         "Display_TIV": "TIV",
         "Display_Prob": st.column_config.NumberColumn("Fire Prob", format="%.2f%%"),
-        "Display_Loss_SQ": "Current Risk Exp.",
-        "Outcome_Type": st.column_config.TextColumn("Simulated Outcome"),
-        "Display_Loss_New": st.column_config.TextColumn("New Risk Exp."),
+        "Display_Prem": "Ann. Premium",
+        "Display_Loss_SQ": st.column_config.TextColumn("Gross Expected Loss"),
+        "Display_Gap": st.column_config.TextColumn("⚠️ Net Loss Gap", help="Expected Loss - Premium. Positive numbers mean the policy is losing money."),
+        "Outcome_Type": "Simulated Outcome",
+        "Display_Loss_New": "New Expected Loss",
     },
     use_container_width=True
 )
 
 # E. Download
 download_df = target_df.copy()
+# Rounding for clean CSV
 download_df["Resilience_Score"] = download_df["Resilience_Score"].round(0).astype(int)
 download_df["MDR_Est"] = download_df["MDR_Est"].round(2)
-download_df["New_MDR_Est"] = (download_df["MDR_Est"] * download_df["Loss_Multiplier"]).round(2)
 download_df["Expected_Loss_Annual"] = download_df["Expected_Loss_Annual"].round(0).astype(int)
-download_df["New_Expected_Loss"] = download_df["New_Expected_Loss"].round(0).astype(int)
+download_df["Annual_Premium"] = download_df["Annual_Premium"].round(0).astype(int)
+download_df["Underwriting_Gap"] = download_df["Expected_Loss_Annual"] - download_df["Annual_Premium"]
 
-cols_out = ["Policy ID", "TIV", "Fire_Prob", "Resilience_Score", "MDR_Est", "Expected_Loss_Annual", "Outcome_Type", "New_MDR_Est", "New_Expected_Loss"]
+cols_out = ["Policy ID", "TIV", "Fire_Prob", "Resilience_Score", "Expected_Loss_Annual", "Annual_Premium", "Underwriting_Gap", "Outcome_Type", "New_Expected_Loss"]
 st.download_button("📥 Download Simulation (CSV)", download_df[cols_out].to_csv(index=False), "faura_simulation.csv")
