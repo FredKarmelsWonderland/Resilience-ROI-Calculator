@@ -47,11 +47,11 @@ st.markdown("### The Pilot Scenario")
 c1, c2 = st.columns([2, 1])
 with c1:
     st.info(f"""
-    1.  Carrier provides a list of **{total_homes_count:,} homes** that we screen at **${screening_cost_per}/address**.
-    2.  We rank them by underwriting risk and target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**, generating personalized resilience reports with a follow on home-feature survey.
+    1.  Carrier provides a list of **{total_homes_count:,} homes** that we screen at **${screening_cost_per}/address**, ranking them by underwriting risk.
+    2.  We target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**, generating personalized resilience reports with a **follow on** home-feature survey.
     
     **The "Pay-for-Performance" Funnel:**
-    * **25% Engagement:** Homeowners who fill out the home feature survey get **${psa_incentive}**.
+    * **25% Engagement:** Homeowners who fill out the home-feature survey get **${psa_incentive}**.
     * **15% Mitigation:** Homeowners who mitigate risk that was previously unmitigated get an additional **${mitigation_incentive}**.
     * *Result:* Your budget dollars primarily pay for performance, not just outreach.
     """)
