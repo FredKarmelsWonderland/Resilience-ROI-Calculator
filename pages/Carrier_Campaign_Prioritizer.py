@@ -47,20 +47,21 @@ st.markdown("### The Pilot Scenario")
 c1, c2 = st.columns([2, 1])
 with c1:
     st.info(f"""
-    **The Constraints:**
+    **Process:**
     1.  Carrier provides a raw list of **{total_homes_count:,} homes** with address, premium, TIV.
     2.  **Step 1 (Screening):** We screen *all* {total_homes_count:,} homes at **${screening_cost_per}/address** to generate our ranking/targeting scores.
-    3.  **Step 2 (Outreach):** We target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**.
+    3.  **Step 2 (Outreach):** We target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**, generating personalized resilience reports with a follow on home-feature survey.
     
     **The "Pay-for-Performance" Funnel:**
-    * **25% Engagement:** Homeowners who fill out the survey get **${psa_incentive}**.
-    * **15% Mitigation:** Homeowners who verify risk reduction get an additional **${mitigation_incentive}**.
+    * **25% Engagement:** Homeowners who fill out the home feature survey get **${psa_incentive}**.
+    * **15% Mitigation:** Homeowners who mitigate risk that was previously unmitigated get an additional **${mitigation_incentive}**.
+    * *Result:* Your budget dollars primarily pay for performance, not just outreach.
     """)
 with c2:
     st.markdown(r"""
     **The "Ignition" Algorithm:**
     $$
-    \text{Risk} = \underbrace{P(\text{Reach})}_\text{Fire Prob} \times \underbrace{P(\text{Ignition})}_\text{Susceptibility} \times \text{TIV}
+    \text{Risk} = \text{TIV} \times P(\text{Fire}) \times P(\text{Ignition})
     $$
     *Most carriers assume Ignition is 100%.*
     *Faura calculates specific Susceptibility via QA Score.*
@@ -185,14 +186,10 @@ target_df["Annual_Savings"] = target_df["Expected_Loss_Annual"] - target_df["New
 total_savings = target_df["Annual_Savings"].sum()
 
 # COST CALCULATION
-# 1. Screening: All Homes
 c_screen = len(df) * screening_cost_per
-# 2. Outreach: Target Homes (Fixed Fee)
 c_engage = budget_count * outreach_cost_per
-# 3. Incentives
 c_psa = (budget_count * 0.25) * psa_incentive
 c_mitigation = (budget_count * 0.15) * mitigation_incentive
-
 total_program_cost = c_screen + c_engage + c_psa + c_mitigation
 
 roi = (total_savings - total_program_cost) / total_program_cost if total_program_cost > 0 else 0
@@ -200,12 +197,12 @@ roi = (total_savings - total_program_cost) / total_program_cost if total_program
 # C. Summary Metrics
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Projected Annual Savings", f"${total_savings:,.0f}")
-m2.metric("Total Program Cost", f"${total_program_cost:,.0f}", help=f"Screening (${c_screen:,.0f}) + Outreach (${c_engage:,.0f}) + Incentives")
+m2.metric("Total Program Cost", f"${total_program_cost:,.0f}", help=f"Screening + Outreach + Incentives")
 m3.metric("Net Program ROI", f"{roi:.1f}x")
 denom = len(target_df[target_df['Outcome_Type'] != 'Status Quo'])
 m4.metric("Avg Savings per Success", f"${total_savings / denom:,.0f}" if denom > 0 else "$0")
 
-# D. Formatting Helper
+# D. Formatting Helpers
 def format_currency_csv(val):
     if val >= 1_000_000: return f"${val/1_000_000:.2f}M"
     elif val >= 1000: return f"${val/1000:.0f}K"
@@ -214,7 +211,7 @@ def format_currency_csv(val):
 def format_pct_csv(val):
     return f"{val*100:.2f}%"
 
-# E. Download Logic (Apply Formatting for CSV)
+# E. Download Logic
 download_df = target_df.copy()
 download_df["TIV"] = download_df["TIV"].apply(format_currency_csv)
 download_df["Expected_Loss_Annual"] = download_df["Expected_Loss_Annual"].apply(format_currency_csv)
@@ -222,24 +219,32 @@ download_df["Annual_Premium"] = download_df["Annual_Premium"].apply(format_curre
 download_df["New_Expected_Loss"] = download_df["New_Expected_Loss"].apply(format_currency_csv)
 download_df["Annual_Savings"] = download_df["Annual_Savings"].apply(format_currency_csv)
 download_df["Fire_Prob"] = download_df["Fire_Prob"].apply(format_pct_csv)
-download_df["Resilience_Score"] = download_df["Resilience_Score"].round(0).astype(int)
 download_df["Susceptibility"] = download_df["Susceptibility"].round(2)
 
-cols_out = ["Policy ID", "TIV", "Fire_Prob", "Resilience_Score", "Susceptibility", "Expected_Loss_Annual", "Annual_Premium", "Outcome_Type", "New_Expected_Loss", "Annual_Savings"]
+cols_out = ["Policy ID", "TIV", "Fire_Prob", "Susceptibility", "Expected_Loss_Annual", "Annual_Premium", "Outcome_Type", "New_Expected_Loss", "Annual_Savings"]
 st.download_button("📥 Download Simulation (CSV)", download_df[cols_out].to_csv(index=False), "faura_simulation.csv")
 
 # F. Display Table
 target_df["Display_TIV"] = target_df["TIV"].apply(format_currency_csv)
 target_df["Display_Loss_SQ"] = target_df["Expected_Loss_Annual"].apply(format_currency_csv)
 target_df["Display_Loss_New"] = target_df["New_Expected_Loss"].apply(format_currency_csv)
+target_df["Display_Prem"] = target_df["Annual_Premium"].apply(format_currency_csv)
 target_df["Display_Gap"] = (target_df["Expected_Loss_Annual"] - target_df["Annual_Premium"]).apply(format_currency_csv)
+
+# Explicitly create display columns for probabilities
+target_df["Display_Prob"] = (target_df["Fire_Prob"] * 100).map("{:.2f}%".format)
+target_df["Display_Ignition"] = target_df["Susceptibility"].map("{:.2f}".format)
 
 st.dataframe(
     target_df.sort_values("Annual_Savings", ascending=False)[
-        ["Policy ID", "Display_TIV", "Display_Loss_SQ", "Display_Gap", "Outcome_Type", "Display_Loss_New"]
+        ["Policy ID", "Display_TIV", "Display_Prob", "Display_Ignition", "Display_Loss_SQ", "Display_Prem", "Display_Gap", "Outcome_Type", "Display_Loss_New"]
     ],
     column_config={
+        "Display_TIV": "TIV",
+        "Display_Prob": "P(Fire)",
+        "Display_Ignition": "P(Ignition)",
         "Display_Loss_SQ": "Gross Expected Loss",
+        "Display_Prem": "Annual Premium",
         "Display_Gap": "Net Loss Gap",
         "Display_Loss_New": "New Expected Loss",
     },
