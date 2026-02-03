@@ -32,8 +32,9 @@ st.title("🎯 Pure Risk Prioritization Engine")
 st.sidebar.header("Simulation Parameters")
 
 st.sidebar.subheader("1. Portfolio Scope")
-total_homes_count = st.sidebar.slider("Total Portfolio Size (to Screen)", 100, 1000, 100, step=100)
-budget_count = st.sidebar.slider("Pilot Target Size", 10, 1000, 100, step=10)
+# CHANGED: Now using Number Inputs with new defaults (500 / 100)
+total_homes_count = st.sidebar.number_input("Total Portfolio Size (to Screen)", value=500, min_value=100, step=50)
+budget_count = st.sidebar.number_input("Pilot Target Size", value=100, min_value=10, step=10)
 
 # --- FIXED COSTS ---
 screening_cost_per = 3.0
@@ -71,11 +72,9 @@ with c2:
 def generate_portfolio(n):
     np.random.seed(42)
     
-    # 1. TIV ($250k - $3M) -- UPDATED CAP
-    # This targets the "Mass Affluent" / "Middle Market" sweet spot.
-    # We maintain the lognormal distribution but clamp strictly at $3M.
+    # 1. TIV ($250k - $4M Cap)
     tiv = np.random.lognormal(mean=13.5, sigma=0.6, size=n)
-    tiv = np.clip(tiv, 250000, 3000000)
+    tiv = np.clip(tiv, 250000, 4000000)
     
     # 2. Fire Probability (0.1% to 2.5%)
     prob_fire = np.random.beta(2, 50, size=n) 
@@ -114,6 +113,7 @@ df["Rank_Random"] = np.random.rand(len(df))
 
 # --- 3. RUN SIMULATION ---
 def evaluate_campaign(rank_col, name):
+    # Safety Check: Cannot pilot more homes than exist in portfolio
     safe_budget = min(budget_count, len(df))
     campaign = df.sort_values(rank_col, ascending=False).head(safe_budget)
     return {
@@ -152,7 +152,7 @@ target_df["Loss_Multiplier"] = target_df["Outcome_Type"].replace(dict(zip(outcom
 target_df["New_Expected_Loss"] = target_df["Expected_Loss_Annual"] * target_df["Loss_Multiplier"]
 target_df["Annual_Savings"] = target_df["Expected_Loss_Annual"] - target_df["New_Expected_Loss"]
 
-# C. Calculate ROW-LEVEL COST (for "New Net")
+# C. Calculate ROW-LEVEL COST
 def calculate_row_cost(outcome):
     base = screening_cost_per + outreach_cost_per 
     if outcome == "Status Quo":
@@ -163,10 +163,7 @@ def calculate_row_cost(outcome):
 target_df["Row_Cost"] = target_df["Outcome_Type"].apply(calculate_row_cost)
 
 # D. Calculate NET Metrics
-# Net = Premium - Gross Loss
 target_df["Net"] = target_df["Annual_Premium"] - target_df["Expected_Loss_Annual"]
-
-# New Net = Premium - New Loss - Costs
 target_df["New Net"] = target_df["Annual_Premium"] - target_df["New_Expected_Loss"] - target_df["Row_Cost"]
 
 # E. Aggregates for Top Cards
@@ -193,7 +190,7 @@ style_df.columns = [
     "Gross Expected Loss", "Net", "Outcome", "New Expected Loss", "New Net"
 ]
 
-# --- Custom Formatter for K/M ---
+# Custom Formatter
 def fmt_currency(x):
     if abs(x) >= 1_000_000:
         return f"${x/1_000_000:.2f}M"
@@ -202,12 +199,10 @@ def fmt_currency(x):
     else:
         return f"${x:,.0f}"
 
-# --- Coloring Function ---
 def color_net(val):
     color = '#ff4b4b' if val < 0 else '#09ab3b' # Red/Green
     return f'color: {color}'
 
-# Apply Styling
 st.dataframe(
     style_df.style
     .format({
