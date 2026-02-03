@@ -71,9 +71,9 @@ with c2:
 def generate_portfolio(n):
     np.random.seed(42)
     
-    # 1. TIV ($250k - $5M)
+    # 1. TIV ($250k - $3M) -- UPDATED CAP
     tiv = np.random.lognormal(mean=13.5, sigma=0.6, size=n)
-    tiv = np.clip(tiv, 250000, 5000000)
+    tiv = np.clip(tiv, 250000, 3000000)
     
     # 2. Fire Probability (0.1% to 2.5%)
     prob_fire = np.random.beta(2, 50, size=n) 
@@ -151,16 +151,12 @@ target_df["New_Expected_Loss"] = target_df["Expected_Loss_Annual"] * target_df["
 target_df["Annual_Savings"] = target_df["Expected_Loss_Annual"] - target_df["New_Expected_Loss"]
 
 # C. Calculate ROW-LEVEL COST (for "New Net")
-# Base Cost: Screening ($3) + Outreach ($30) = $33
-# Incentive Cost: Only if outcome is Halved/Quartered (implies engagement + mitigation)
-# Note: For simplicity, assuming "Status Quo" incurred outreach cost but no incentive.
-#       Assuming "Halved/Quartered" incurred PSA ($50) + Mitigation ($300).
 def calculate_row_cost(outcome):
-    base = screening_cost_per + outreach_cost_per # 33
+    base = screening_cost_per + outreach_cost_per 
     if outcome == "Status Quo":
         return base
     else:
-        return base + psa_incentive + mitigation_incentive # 33 + 50 + 300 = 383
+        return base + psa_incentive + mitigation_incentive 
 
 target_df["Row_Cost"] = target_df["Outcome_Type"].apply(calculate_row_cost)
 
@@ -184,35 +180,41 @@ denom = len(target_df[target_df['Outcome_Type'] != 'Status Quo'])
 m4.metric("Avg Savings per Success", f"${total_savings / denom:,.0f}" if denom > 0 else "$0")
 
 # F. PREPARE DISPLAY TABLE (Styling)
-# We need a clean dataframe for styling
 display_cols = [
     "Policy ID", "TIV", "Annual_Premium", "Fire_Prob", "Susceptibility", 
     "Expected_Loss_Annual", "Net", "Outcome_Type", "New_Expected_Loss", "New Net"
 ]
 style_df = target_df[display_cols].copy()
 
-# Rename for clean headers
 style_df.columns = [
     "Policy ID", "TIV", "Annual Premium", "P(Fire)", "P(Ignition)", 
     "Gross Expected Loss", "Net", "Outcome", "New Expected Loss", "New Net"
 ]
 
-# Formatting Function for Coloring
+# --- Custom Formatter for K/M ---
+def fmt_currency(x):
+    if abs(x) >= 1_000_000:
+        return f"${x/1_000_000:.2f}M"
+    elif abs(x) >= 1_000:
+        return f"${x/1_000:.0f}K"
+    else:
+        return f"${x:,.0f}"
+
+# --- Coloring Function ---
 def color_net(val):
-    color = '#ff4b4b' if val < 0 else '#09ab3b' # Streamlit Red / Green
+    color = '#ff4b4b' if val < 0 else '#09ab3b' # Red/Green
     return f'color: {color}'
 
 # Apply Styling
-# Note: We format numbers as strings here for the static display
 st.dataframe(
     style_df.style
     .format({
-        "TIV": "${:,.0f}",
-        "Annual Premium": "${:,.0f}",
-        "Gross Expected Loss": "${:,.0f}",
-        "Net": "${:,.0f}",
-        "New Expected Loss": "${:,.0f}",
-        "New Net": "${:,.0f}",
+        "TIV": fmt_currency,
+        "Annual Premium": fmt_currency,
+        "Gross Expected Loss": fmt_currency,
+        "Net": fmt_currency,
+        "New Expected Loss": fmt_currency,
+        "New Net": fmt_currency,
         "P(Fire)": "{:.4f}",
         "P(Ignition)": "{:.2f}"
     })
@@ -221,17 +223,14 @@ st.dataframe(
     height=500
 )
 
-
 # G. Download Logic
 download_df = target_df.copy()
-# Rounding
 download_df["Fire_Prob"] = download_df["Fire_Prob"].round(4)
 download_df["Susceptibility"] = download_df["Susceptibility"].round(2)
 download_df = download_df.round(0)
 
 cols_out = ["Policy ID", "TIV", "Fire_Prob", "Susceptibility", "Expected_Loss_Annual", "Annual_Premium", "Net", "Outcome_Type", "New_Expected_Loss", "Row_Cost", "New Net"]
 st.download_button("📥 Download Simulation (CSV)", download_df[cols_out].to_csv(index=False), "faura_simulation.csv")
-
 
 # --- 5. ANALYTICS SECTION ---
 st.markdown("---")
