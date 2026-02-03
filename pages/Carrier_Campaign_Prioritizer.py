@@ -33,7 +33,7 @@ st.sidebar.header("Simulation Parameters")
 
 st.sidebar.subheader("1. Portfolio Scope")
 total_homes_count = st.sidebar.slider("Total Portfolio Size (to Screen)", 1000, 10000, 1000, step=500)
-budget_count = st.sidebar.slider("Pilot Target Size", 50, 500, 200, step=50)
+budget_count = st.sidebar.slider("Pilot Target Size", 50, 10000, 200, step=50)
 
 # --- FIXED COSTS (Hidden from Sidebar) ---
 screening_cost_per = 3.0
