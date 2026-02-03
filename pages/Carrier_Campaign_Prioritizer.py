@@ -28,7 +28,7 @@ if not check_password():
 # --- MAIN CONTENT ---
 st.title("🎯 Pure Risk Prioritization Engine")
 st.markdown("""
-**The Philosophy:** Behavioral proxies (like tenure or email opens) are unreliable. 
+**The Philosophy:** Behavioral proxies are unreliable. 
 **The Solution:** Prioritize strictly by **Gross Expected Loss**. Target the properties where the carrier has the most to lose.
 """)
 
@@ -41,12 +41,11 @@ def generate_portfolio(n=1000):
     tiv = np.random.lognormal(mean=13.5, sigma=0.6, size=n)
     tiv = np.clip(tiv, 250000, 5000000)
     
-    # 2. Fire Probability (0.1% to 5%)
+    # 2. Fire Probability (0.1% to 2.5%)
     prob_fire = np.random.beta(2, 50, size=n) 
-    prob_fire = np.clip(prob_fire, 0.001, 0.05)
+    prob_fire = np.clip(prob_fire, 0.001, 0.025)
     
     # 3. Resilience Score (The MDR Proxy)
-    # Higher Score = Lower Damage
     qa_score = np.random.normal(60, 15, size=n)
     qa_score = np.clip(qa_score, 10, 95)
     
@@ -58,11 +57,9 @@ def generate_portfolio(n=1000):
     })
     
     # --- METRIC: ESTIMATED MDR (Mean Damage Ratio) ---
-    # Logic: Lower Score = Higher Damage. Clamped at 10% min damage.
     df["MDR_Est"] = ((100 - df["Resilience_Score"]) / 100).clip(lower=0.10)
 
     # --- METRIC: GROSS EXPECTED LOSS (ANNUAL) ---
-    # The "Hard Variable" Truth: TIV * P(Fire) * MDR
     df["Expected_Loss_Annual"] = df["TIV"] * df["Fire_Prob"] * df["MDR_Est"]
     
     return df
@@ -74,58 +71,39 @@ budget_count = st.sidebar.slider("Campaign Target Size (Homes)", 50, 500, 200)
 df = generate_portfolio()
 
 # --- 2. STRATEGY LOGIC ---
-
-# Strategy A: FAURA PRIORITIZED (Risk First)
 df["Rank_Risk"] = df["Expected_Loss_Annual"]
-
-# Strategy B: RANDOM (Status Quo / Alphabetical)
 df["Rank_Random"] = np.random.rand(len(df))
 
 # --- 3. RUN SIMULATION ---
 def evaluate_campaign(rank_col, name):
-    # Select top N
     campaign = df.sort_values(rank_col, ascending=False).head(budget_count)
-    
-    # Metrics
-    total_tiv = campaign["TIV"].sum()
-    total_risk = campaign["Expected_Loss_Annual"].sum()
-    avg_score = campaign["Resilience_Score"].mean()
-    
     return {
         "Name": name,
-        "Total Risk Targeted": total_risk,
-        "Total TIV Touched": total_tiv,
-        "Avg Resilience Score": avg_score,
+        "Total Risk Targeted": campaign["Expected_Loss_Annual"].sum(),
         "Selection": campaign
     }
 
 res_faura = evaluate_campaign("Rank_Risk", "Faura Risk Prioritized")
 res_rand  = evaluate_campaign("Rank_Random", "Random Outreach (Control)")
 
-# --- 4. DASHBOARD ---
-
-# METRICS ROW
-st.subheader("📊 Impact Analysis")
+# --- 4. DASHBOARD METRICS ---
+st.subheader("📊 Prioritization Impact")
 c1, c2, c3 = st.columns(3)
 
-# Calculate Lift
 risk_lift = (res_faura["Total Risk Targeted"] - res_rand["Total Risk Targeted"])
 risk_lift_pct = (risk_lift / res_rand["Total Risk Targeted"]) * 100
 
 c1.metric("Risk Exposure Targeted (Faura)", f"${res_faura['Total Risk Targeted']:,.0f}", delta=f"+{risk_lift_pct:.0f}% Lift")
 c2.metric("Risk Exposure Targeted (Random)", f"${res_rand['Total Risk Targeted']:,.0f}", delta="Baseline", delta_color="off")
-c3.metric("Avg Resilience of Target Group", f"{res_faura['Avg Resilience Score']:.0f}/100", help="Lower is better (means we are targeting the most vulnerable homes)")
+c3.metric("Campaign Size", f"{budget_count} Homes")
 
 # --- 5. LIFT CHART ---
 st.markdown("---")
-st.subheader("📈 The Value of Sorting")
-st.markdown("**Question:** *'Why do we need data? Why not just call customers at random?'*")
-st.markdown("**Answer:** Because risk is not evenly distributed. A small % of homes hold the majority of the risk.")
+st.subheader("📈 Risk Capture Curve")
 
 def get_lift_curve(rank_col, name):
     sorted_df = df.sort_values(rank_col, ascending=False).reset_index(drop=True)
     sorted_df["Cum_Risk"] = sorted_df["Expected_Loss_Annual"].cumsum()
-    
     total_risk = df["Expected_Loss_Annual"].sum()
     sorted_df["% Total Risk"] = sorted_df["Cum_Risk"] / total_risk
     sorted_df["% Homes Targeted"] = (sorted_df.index + 1) / len(sorted_df)
@@ -138,57 +116,81 @@ lift_data = pd.concat([
 ])
 
 fig = px.line(lift_data, x="% Homes Targeted", y="% Total Risk", color="Strategy",
-              color_discrete_map={
-                  "Faura Prioritized": "#00CC96", # Green
-                  "Random Outreach": "#EF553B",   # Red
-              })
+              color_discrete_map={"Faura Prioritized": "#00CC96", "Random Outreach": "#EF553B"})
 fig.add_vline(x=budget_count/len(df), line_dash="dash", line_color="grey", annotation_text="Budget Cutoff")
-fig.update_layout(height=450, xaxis_tickformat=".0%", yaxis_tickformat=".0%")
+fig.update_layout(height=400, xaxis_tickformat=".0%", yaxis_tickformat=".0%")
 st.plotly_chart(fig, use_container_width=True)
 
-# --- 6. TARGET LIST PREVIEW ---
+# --- 6. TARGET LIST & SIMULATION ---
 st.markdown("---")
-st.subheader(f"📋 Priority Target List ({budget_count} Homes)")
-st.caption("Sorted by **Annual Risk Exposure** (TIV × Fire Prob × Vulnerability)")
+st.subheader(f"📋 Campaign Projection (Simulated Results)")
+st.markdown("""
+**Scenario Assumptions:**
+* **85%** Non-Responsive (Status Quo)
+* **10%** Reduce MDR by 50% (Halved)
+* **5%** Reduce MDR by 75% (Quartered)
+""")
 
-# --- DISPLAY LOGIC (Custom Formatting for Display Table) ---
-target_display = res_faura['Selection'].copy()
+# A. Apply Simulation Logic
+target_df = res_faura['Selection'].copy()
 
-# Helper function for K/M formatting
+# Set seed for consistency in demo
+np.random.seed(99) 
+
+# Assign outcomes
+outcomes = ["Status Quo", "MDR Halved", "MDR Quartered"]
+multipliers = [1.0, 0.5, 0.25]
+probs = [0.85, 0.10, 0.05]
+
+# Randomly assign outcome to each row
+target_df["Outcome_Type"] = np.random.choice(outcomes, size=len(target_df), p=probs)
+target_df["Loss_Multiplier"] = target_df["Outcome_Type"].replace(dict(zip(outcomes, multipliers)))
+
+# Calculate New Loss
+target_df["New_Expected_Loss"] = target_df["Expected_Loss_Annual"] * target_df["Loss_Multiplier"]
+target_df["Annual_Savings"] = target_df["Expected_Loss_Annual"] - target_df["New_Expected_Loss"]
+
+# B. Calculate Aggregate Savings
+total_savings = target_df["Annual_Savings"].sum()
+program_cost = budget_count * 150 # Assumption: $150 per home engagement cost
+roi = (total_savings - program_cost) / program_cost
+
+# C. Display Summary Metrics
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("Projected Annual Savings", f"${total_savings:,.0f}", help="Total reduction in expected loss based on simulation.")
+m2.metric("Program ROI", f"{roi:.1f}x", help="Assuming $150 cost per home engaged")
+m3.metric("Homes Improved", f"{len(target_df[target_df['Outcome_Type'] != 'Status Quo'])}", help="15% of target list")
+m4.metric("Avg Savings per Success", f"${total_savings / len(target_df[target_df['Outcome_Type'] != 'Status Quo']):,.0f}")
+
+# D. Format Table for Display
 def format_currency(val):
-    if val >= 1_000_000:
-        return f"${val/1_000_000:.2f}M"
-    else:
-        return f"${val/1_000:.0f}K"
+    if val >= 1_000_000: return f"${val/1_000_000:.2f}M"
+    else: return f"${val/1_000:.0f}K"
 
-# Apply formatting for display
-target_display["Display_TIV"] = target_display["TIV"].apply(format_currency)
-target_display["Display_Loss"] = target_display["Expected_Loss_Annual"].apply(format_currency)
+target_df["Display_TIV"] = target_df["TIV"].apply(format_currency)
+target_df["Display_Loss_SQ"] = target_df["Expected_Loss_Annual"].apply(format_currency)
+target_df["Display_Loss_New"] = target_df["New_Expected_Loss"].apply(format_currency)
+target_df["Display_Prob"] = target_df["Fire_Prob"] * 100
 
 st.dataframe(
-    target_display[["Policy ID", "Display_TIV", "Fire_Prob", "Resilience_Score", "MDR_Est", "Display_Loss"]],
+    target_df[["Policy ID", "Display_TIV", "Display_Prob", "Display_Loss_SQ", "Outcome_Type", "Display_Loss_New"]].sort_values("Annual_Savings", ascending=False),
     column_config={
-        "Policy ID": "Policy ID",
         "Display_TIV": "TIV",
-        "Fire_Prob": st.column_config.NumberColumn("Ann. Fire Prob", format="%.2f%%"),
-        "Resilience_Score": st.column_config.NumberColumn("QA Score", format="%d"),
-        "MDR_Est": st.column_config.ProgressColumn("Vuln. (MDR)", format="%.2f", min_value=0, max_value=1),
-        "Display_Loss": st.column_config.TextColumn("Annual Risk Exp.") # TextColumn because we pre-formatted it
+        "Display_Prob": st.column_config.NumberColumn("Fire Prob", format="%.2f%%"),
+        "Display_Loss_SQ": "Current Risk Exp.",
+        "Outcome_Type": st.column_config.TextColumn("Simulated Outcome"),
+        "Display_Loss_New": st.column_config.TextColumn("New Risk Exp."),
     },
     use_container_width=True
 )
 
-# --- DOWNLOAD LOGIC (Clean Numbers for CSV) ---
-download_df = res_faura['Selection'].copy()
-
-# Rounding
+# E. Download
+download_df = target_df.copy()
 download_df["Resilience_Score"] = download_df["Resilience_Score"].round(0).astype(int)
 download_df["MDR_Est"] = download_df["MDR_Est"].round(2)
+download_df["New_MDR_Est"] = (download_df["MDR_Est"] * download_df["Loss_Multiplier"]).round(2)
 download_df["Expected_Loss_Annual"] = download_df["Expected_Loss_Annual"].round(0).astype(int)
-download_df["TIV"] = download_df["TIV"].round(0).astype(int)
+download_df["New_Expected_Loss"] = download_df["New_Expected_Loss"].round(0).astype(int)
 
-# Drop unwanted columns
-cols_to_keep = ["Policy ID", "TIV", "Fire_Prob", "Resilience_Score", "MDR_Est", "Expected_Loss_Annual"]
-csv_data = download_df[cols_to_keep].to_csv(index=False)
-
-st.download_button("📥 Download Priority List (CSV)", csv_data, "faura_priority_targets.csv")
+cols_out = ["Policy ID", "TIV", "Fire_Prob", "Resilience_Score", "MDR_Est", "Expected_Loss_Annual", "Outcome_Type", "New_MDR_Est", "New_Expected_Loss"]
+st.download_button("📥 Download Simulation (CSV)", download_df[cols_out].to_csv(index=False), "faura_simulation.csv")
