@@ -42,7 +42,7 @@ with c1:
     st.info(f"""
     **The Constraints:**
     1.  Carrier provides a raw list of **1,000 homes**.
-    2.  **Step 1 (Screening):** We screen *all* 1,000 homes at **${screening_cost_per}/address** to generate risk scores.
+    2.  **Step 1 (Screening):** We screen *all* 1,000 homes at **${screening_cost_per}/address** to generate our ranking/targeting scores.
     3.  **Step 2 (Outreach):** We target the top **200 homes** with a pilot outreach budget of **${outreach_cost_per}/home**.
     
     **The "Pay-for-Performance" Funnel:**
@@ -52,7 +52,7 @@ with c1:
     """)
 with c2:
     st.markdown("""
-    **The Algorithm:**
+    **The Ranking/Targeting Algorithm:**
     $$
     \\text{Value} = P_{\\text{Wildfire}} \\times \\text{TIV} \\times \\text{MDR}
     $$
