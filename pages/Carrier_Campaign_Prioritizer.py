@@ -29,12 +29,17 @@ if not check_password():
 st.title("🎯 Pure Risk Prioritization Engine")
 
 # --- PHILOSOPHY & ALGORITHM SECTION ---
-st.markdown("### The Methodology")
+st.markdown("### The Pilot Scenario")
 c1, c2 = st.columns([2, 1])
 with c1:
     st.info("""
-    **The Philosophy:** Behavioral proxies (email opens, tenure) are unreliable.  
-    **The Solution:** Prioritize strictly by **Gross Expected Loss**. Target the properties where the carrier has the most to lose.
+    **The Constraints:**
+    1.  Carrier provides a raw list of **1,000 homes**.
+    2.  Budget allows for a pilot on only **200 homes** (at ~$150/home).
+    
+    **The Faura Strategy:**
+    3.  We target homes with the **Highest Gross Risk** (Expected Loss) first.
+    4.  **Result:** We avoid wasting pilot budget on "Profitable" homes (where Premium > Loss) or low-probability events, maximizing the ROI of the $30k pilot spend.
     """)
 with c2:
     st.markdown("""
