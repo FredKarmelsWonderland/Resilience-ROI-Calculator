@@ -29,7 +29,7 @@ if not check_password():
 st.title("🎯 Pure Risk Prioritization Engine")
 
 # --- PHILOSOPHY & SCENARIO SECTION ---
-st.markdown("### The Pilot Scenario")
+st.markdown("### The Pilot Scenario:  We screen for ROI")
 
 # Define costs for dynamic display
 screening_cost_per = 3
@@ -41,7 +41,7 @@ c1, c2 = st.columns([2, 1])
 with c1:
     st.info(f"""
     **The Constraints:**
-    1.  Carrier provides a raw list of **1,000 homes**.
+    1.  Carrier provides a raw list of **1,000 homes** with address, premium, TIV.
     2.  **Step 1 (Screening):** We screen *all* 1,000 homes at **${screening_cost_per}/address** to generate our ranking/targeting scores.
     3.  **Step 2 (Outreach):** We target the top **200 homes** with a pilot outreach budget of **${outreach_cost_per}/home**, generating personalized resilience reports with a follow on home-feature survey.
     
