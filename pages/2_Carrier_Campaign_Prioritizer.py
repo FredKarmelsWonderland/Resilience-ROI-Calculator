@@ -36,10 +36,10 @@ total_homes_count = st.sidebar.number_input("Total Portfolio Size (to Screen)", 
 budget_count = st.sidebar.number_input("Pilot Target Size", value=100, min_value=10, step=10)
 
 # --- FIXED COSTS ---
-screening_cost_per = 3.0
-outreach_cost_per = 20.0
-psa_incentive = 50.0
-mitigation_incentive = 300.0
+screening_cost_per = 3
+outreach_cost_per = 2
+psa_incentive = 50
+mitigation_incentive = 300
 
 # --- PHILOSOPHY & SCENARIO SECTION ---
 st.markdown("### The Pilot Scenario")
@@ -48,7 +48,7 @@ c1, c2 = st.columns([2, 1])
 with c1:
     st.info(f"""
     1.  Carrier provides a raw list of **{total_homes_count:,} homes** with home address, premium, TIV, and email.
-    2.  **(Screening):** We screen *all* {total_homes_count:,} homes at **${screening_cost_per}/address** and rank them by financial vulnerability.
+    2.  **(Screening):** We screen *all* {total_homes_count:,} homes at **${screening_cost_per}/address** and rank them by underwriting risk.
     3.  **(Outreach):** We target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**, generating personalized resilience reports with a follow on home-feature survey.
     
     **The "Pay-for-Performance" Funnel:**
@@ -64,7 +64,7 @@ with c2:
     \text{Risk} = \text{TIV} \times \underbrace{P(\text{Fire})}_\text{Hazard} \times \underbrace{P(\text{Ignition})}_\text{Vulnerability}
     $$
     * **Hazard (P_Fire):** Probability of Wildfire.
-    * **Vulnerability (P_Ignition):** Probability of ignition if Fire occurs.
+    * **Vulnerability (P_Ignition):** Probability of ignition if Fire occurs (Faura uses its Proprietary Quick Assessment score for this).
     """)
 
 # --- 1. DATA GENERATION ---
