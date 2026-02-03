@@ -35,6 +35,14 @@ st.sidebar.subheader("1. Portfolio Scope")
 total_homes_count = st.sidebar.number_input("Total Portfolio Size (to Screen)", value=500, min_value=100, step=50)
 budget_count = st.sidebar.number_input("Pilot Target Size", value=100, min_value=10, step=10)
 
+st.sidebar.subheader("2. Program Effectiveness")
+conv_rate_pct = st.sidebar.slider("Mitigation Conversion Rate (%)", 0, 50, 15, step=1, help="Percentage of targeted homeowners who successfully mitigate risk.")
+vuln_red_pct = st.sidebar.slider("Vulnerability Reduction (%)", 0, 100, 50, step=5, help="Average reduction in P(Ignition) for those who mitigate.")
+
+# Conversion to decimals for math
+conversion_rate = conv_rate_pct / 100.0
+effectiveness = vuln_red_pct / 100.0
+
 # --- FIXED COSTS ---
 screening_cost_per = 3
 outreach_cost_per = 20
@@ -128,20 +136,22 @@ res_rand  = evaluate_campaign("Rank_Random", "Random Outreach (Control)")
 st.markdown("---")
 st.subheader(f"📋 Campaign Profitability Projection")
 st.caption("Note: Values for TIV, Premium, and Probability below are **simulated** for this demonstration.")
-st.markdown("""
-**Scenario Assumptions:**
-* **85%** Status Quo (Non-Responsive)
-* **10%** Reduce P(Ignition) by 50% (Halved)
-* **5%** Reduce P(Ignition) by 75% (Quartered)
+
+# Dynamic Text based on Sliders
+st.markdown(f"""
+**Scenario Assumptions (Adjustable in Sidebar):**
+* **{100 - conv_rate_pct}%** Status Quo (Non-Responsive)
+* **{conv_rate_pct}%** Mitigate Risk (Reduces P(Ignition) by **{vuln_red_pct}%**)
 """)
 
 # A. Apply Simulation Logic
 target_df = res_faura['Selection'].copy()
 np.random.seed(99) 
 
-outcomes = ["Status Quo", "P(Ignition) Halved", "P(Ignition) Quartered"]
-multipliers = [1.0, 0.5, 0.25]
-probs = [0.85, 0.10, 0.05] 
+outcomes = ["Status Quo", "Mitigated"]
+probs = [1 - conversion_rate, conversion_rate]
+# Multipliers: Status Quo = 1.0 (No change). Mitigated = 1.0 - effectiveness (e.g., 0.7 for 30% reduction)
+multipliers = [1.0, 1.0 - effectiveness]
 
 target_df["Outcome_Type"] = np.random.choice(outcomes, size=len(target_df), p=probs)
 target_df["Loss_Multiplier"] = target_df["Outcome_Type"].replace(dict(zip(outcomes, multipliers)))
@@ -156,6 +166,7 @@ def calculate_row_cost(outcome):
     if outcome == "Status Quo":
         return base
     else:
+        # Mitigated means they engaged (PSA $) AND mitigated (Mitigation $)
         return base + psa_incentive + mitigation_incentive 
 
 target_df["Row_Cost"] = target_df["Outcome_Type"].apply(calculate_row_cost)
@@ -228,7 +239,7 @@ st.download_button("📥 Download Simulation (CSV)", download_df[cols_out].to_cs
 
 # --- 5. ANALYTICS SECTION ---
 st.markdown("---")
-st.subheader("📊 Deep Dive: Why Ranking and Screening is Better than Random Selection")
+st.subheader("📊 Deep Dive: The Value of Data Screening")
 
 c1, c2, c3, c4 = st.columns(4)
 risk_diff = res_faura["Total Risk Targeted"] - res_rand["Total Risk Targeted"]
