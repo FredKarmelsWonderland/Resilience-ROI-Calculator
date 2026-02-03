@@ -75,7 +75,7 @@ def generate_portfolio(n):
     tiv = np.random.lognormal(mean=13.5, sigma=0.6, size=n)
     tiv = np.clip(tiv, 250000, 5000000)
     
-    # 2. Fire Probability (0.1% to 2.5%) - "P(Reach)"
+    # 2. Fire Probability (0.1% to 2.5%)
     prob_fire = np.random.beta(2, 50, size=n) 
     prob_fire = np.clip(prob_fire, 0.001, 0.025)
     
@@ -91,10 +91,11 @@ def generate_portfolio(n):
     })
     
     # --- METRICS ---
+    # Premium Rate (simulated ~0.5%)
     rate = np.random.uniform(0.002, 0.008, size=n)
     df["Annual_Premium"] = df["TIV"] * rate
     
-    # RENAMED: MDR -> P(Ignition)
+    # P(Ignition)
     df["Susceptibility"] = ((100 - df["Resilience_Score"]) / 100).clip(lower=0.10)
     
     # Gross Expected Loss
@@ -125,8 +126,8 @@ res_rand  = evaluate_campaign("Rank_Random", "Random Outreach (Control)")
 
 # --- 4. CAMPAIGN ROI SECTION ---
 st.markdown("---")
-st.subheader(f"📋 Campaign ROI Projection")
-st.caption("Note: Values for TIV, Premium, and Probability below are **simulated** for this demonstration. In a live pilot, we would ingest your actual portfolio data.")
+st.subheader(f"📋 Campaign Profitability Projection")
+st.caption("Note: Values for TIV, Premium, and Probability below are **simulated** for this demonstration.")
 st.markdown("""
 **Scenario Assumptions:**
 * **85%** Status Quo (Non-Responsive)
@@ -138,88 +139,99 @@ st.markdown("""
 target_df = res_faura['Selection'].copy()
 np.random.seed(99) 
 
-# UPDATED: Changed Strings to "P(Ignition)"
 outcomes = ["Status Quo", "P(Ignition) Halved", "P(Ignition) Quartered"]
 multipliers = [1.0, 0.5, 0.25]
 probs = [0.85, 0.10, 0.05] 
 
 target_df["Outcome_Type"] = np.random.choice(outcomes, size=len(target_df), p=probs)
 target_df["Loss_Multiplier"] = target_df["Outcome_Type"].replace(dict(zip(outcomes, multipliers)))
+
+# B. Calculate NEW Loss
 target_df["New_Expected_Loss"] = target_df["Expected_Loss_Annual"] * target_df["Loss_Multiplier"]
 target_df["Annual_Savings"] = target_df["Expected_Loss_Annual"] - target_df["New_Expected_Loss"]
 
-# B. Aggregate Savings & ROI
+# C. Calculate ROW-LEVEL COST (for "New Net")
+# Base Cost: Screening ($3) + Outreach ($30) = $33
+# Incentive Cost: Only if outcome is Halved/Quartered (implies engagement + mitigation)
+# Note: For simplicity, assuming "Status Quo" incurred outreach cost but no incentive.
+#       Assuming "Halved/Quartered" incurred PSA ($50) + Mitigation ($300).
+def calculate_row_cost(outcome):
+    base = screening_cost_per + outreach_cost_per # 33
+    if outcome == "Status Quo":
+        return base
+    else:
+        return base + psa_incentive + mitigation_incentive # 33 + 50 + 300 = 383
+
+target_df["Row_Cost"] = target_df["Outcome_Type"].apply(calculate_row_cost)
+
+# D. Calculate NET Metrics
+# Net = Premium - Gross Loss
+target_df["Net"] = target_df["Annual_Premium"] - target_df["Expected_Loss_Annual"]
+
+# New Net = Premium - New Loss - Costs
+target_df["New Net"] = target_df["Annual_Premium"] - target_df["New_Expected_Loss"] - target_df["Row_Cost"]
+
+# E. Aggregates for Top Cards
 total_savings = target_df["Annual_Savings"].sum()
-
-# COST CALCULATION
-c_screen = len(df) * screening_cost_per
-c_engage = len(target_df) * outreach_cost_per
-c_psa = (len(target_df) * 0.25) * psa_incentive
-c_mitigation = (len(target_df) * 0.15) * mitigation_incentive
-
-total_program_cost = c_screen + c_engage + c_psa + c_mitigation
-
+total_program_cost = target_df["Row_Cost"].sum()
 roi = (total_savings - total_program_cost) / total_program_cost if total_program_cost > 0 else 0
 
-# C. Summary Metrics
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Projected Annual Savings", f"${total_savings:,.0f}")
-m2.metric("Total Program Cost", f"${total_program_cost:,.0f}", help=f"Screening + Outreach + Incentives")
+m2.metric("Total Program Cost", f"${total_program_cost:,.0f}", help="Sum of screening, outreach, and incentives based on outcomes.")
 m3.metric("Net Program ROI", f"{roi:.1f}x")
 denom = len(target_df[target_df['Outcome_Type'] != 'Status Quo'])
 m4.metric("Avg Savings per Success", f"${total_savings / denom:,.0f}" if denom > 0 else "$0")
 
-# D. Formatting Helpers
-def format_currency_csv(val):
-    if val >= 1_000_000: return f"${val/1_000_000:.2f}M"
-    elif val >= 1000: return f"${val/1000:.0f}K"
-    else: return f"${val:.0f}"
+# F. PREPARE DISPLAY TABLE (Styling)
+# We need a clean dataframe for styling
+display_cols = [
+    "Policy ID", "TIV", "Annual_Premium", "Fire_Prob", "Susceptibility", 
+    "Expected_Loss_Annual", "Net", "Outcome_Type", "New_Expected_Loss", "New Net"
+]
+style_df = target_df[display_cols].copy()
 
-# E. Display Table
-target_df["Display_TIV"] = target_df["TIV"].apply(format_currency_csv)
-target_df["Display_Loss_SQ"] = target_df["Expected_Loss_Annual"].apply(format_currency_csv)
-target_df["Display_Loss_New"] = target_df["New_Expected_Loss"].apply(format_currency_csv)
-target_df["Display_Prem"] = target_df["Annual_Premium"].apply(format_currency_csv)
-target_df["Display_Gap"] = (target_df["Expected_Loss_Annual"] - target_df["Annual_Premium"]).apply(format_currency_csv)
+# Rename for clean headers
+style_df.columns = [
+    "Policy ID", "TIV", "Annual Premium", "P(Fire)", "P(Ignition)", 
+    "Gross Expected Loss", "Net", "Outcome", "New Expected Loss", "New Net"
+]
 
-# NEW: New Net Loss Gap
-target_df["New_Underwriting_Gap"] = target_df["New_Expected_Loss"] - target_df["Annual_Premium"]
-target_df["Display_New_Gap"] = target_df["New_Underwriting_Gap"].apply(format_currency_csv)
+# Formatting Function for Coloring
+def color_net(val):
+    color = '#ff4b4b' if val < 0 else '#09ab3b' # Streamlit Red / Green
+    return f'color: {color}'
 
-# UPDATED: P(Fire) as Decimal, P(Ignition) as Decimal
-target_df["Display_Prob"] = target_df["Fire_Prob"].map("{:.4f}".format)
-target_df["Display_Ignition"] = target_df["Susceptibility"].map("{:.2f}".format)
-
+# Apply Styling
+# Note: We format numbers as strings here for the static display
 st.dataframe(
-    target_df.sort_values("Annual_Savings", ascending=False)[
-        ["Policy ID", "Display_TIV", "Display_Prob", "Display_Ignition", "Display_Prem", "Display_Loss_SQ", "Display_Gap", "Outcome_Type", "Display_Loss_New", "Display_New_Gap"]
-    ],
-    column_config={
-        "Display_TIV": "TIV",
-        "Display_Prob": "P(Fire)",
-        "Display_Ignition": "P(Ignition)",
-        "Display_Prem": "Annual Premium",
-        "Display_Loss_SQ": "Gross Expected Loss",
-        "Display_Gap": "Net Loss Gap (Old)",
-        "Outcome_Type": "Simulated Outcome",
-        "Display_Loss_New": "New Expected Loss",
-        "Display_New_Gap": st.column_config.TextColumn("New Net Loss Gap", help="New Expected Loss - Premium. Shows if the policy is now profitable."),
-    },
-    use_container_width=True
+    style_df.style
+    .format({
+        "TIV": "${:,.0f}",
+        "Annual Premium": "${:,.0f}",
+        "Gross Expected Loss": "${:,.0f}",
+        "Net": "${:,.0f}",
+        "New Expected Loss": "${:,.0f}",
+        "New Net": "${:,.0f}",
+        "P(Fire)": "{:.4f}",
+        "P(Ignition)": "{:.2f}"
+    })
+    .map(color_net, subset=["Net", "New Net"]),
+    use_container_width=True,
+    height=500
 )
 
-# E. Download Logic
+
+# G. Download Logic
 download_df = target_df.copy()
-download_df["TIV"] = download_df["TIV"].apply(format_currency_csv)
-download_df["Expected_Loss_Annual"] = download_df["Expected_Loss_Annual"].apply(format_currency_csv)
-download_df["Annual_Premium"] = download_df["Annual_Premium"].apply(format_currency_csv)
-download_df["New_Expected_Loss"] = download_df["New_Expected_Loss"].apply(format_currency_csv)
-download_df["Annual_Savings"] = download_df["Annual_Savings"].apply(format_currency_csv)
+# Rounding
 download_df["Fire_Prob"] = download_df["Fire_Prob"].round(4)
 download_df["Susceptibility"] = download_df["Susceptibility"].round(2)
+download_df = download_df.round(0)
 
-cols_out = ["Policy ID", "TIV", "Fire_Prob", "Susceptibility", "Expected_Loss_Annual", "Annual_Premium", "Outcome_Type", "New_Expected_Loss", "New_Underwriting_Gap"]
+cols_out = ["Policy ID", "TIV", "Fire_Prob", "Susceptibility", "Expected_Loss_Annual", "Annual_Premium", "Net", "Outcome_Type", "New_Expected_Loss", "Row_Cost", "New Net"]
 st.download_button("📥 Download Simulation (CSV)", download_df[cols_out].to_csv(index=False), "faura_simulation.csv")
+
 
 # --- 5. ANALYTICS SECTION ---
 st.markdown("---")
