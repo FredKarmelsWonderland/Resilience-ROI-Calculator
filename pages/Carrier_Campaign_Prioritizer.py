@@ -49,7 +49,7 @@ with c1:
     st.info(f"""
     **Process:**
     1.  Carrier provides a raw list of **{total_homes_count:,} homes** with address, premium, TIV.
-    2.  **Step 1 (Screening):** We screen *all* {total_homes_count:,} homes at **${screening_cost_per}/address** to generate our ranking/targeting scores.
+    2.  **Step 1 (Screening):** We screen *all* {total_homes_count:,} homes at **${screening_cost_per}/address** to algorithmically generate our ranking/targeting funnel.
     3.  **Step 2 (Outreach):** We target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**, generating personalized resilience reports with a follow on home-feature survey.
     
     **The "Pay-for-Performance" Funnel:**
@@ -59,7 +59,7 @@ with c1:
     """)
 with c2:
     st.markdown(r"""
-    **The "Ignition" Algorithm:**
+    **The Ranking Algorithm:**
     $$
     \text{Risk} = \text{TIV} \times P(\text{Fire}) \times P(\text{Ignition})
     $$
