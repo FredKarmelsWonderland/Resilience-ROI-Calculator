@@ -37,7 +37,7 @@ budget_count = st.sidebar.number_input("Pilot Target Size", value=100, min_value
 
 # --- FIXED COSTS ---
 screening_cost_per = 3
-outreach_cost_per = 2
+outreach_cost_per = 20
 psa_incentive = 50
 mitigation_incentive = 300
 
