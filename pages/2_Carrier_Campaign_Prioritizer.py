@@ -228,7 +228,7 @@ st.download_button("📥 Download Simulation (CSV)", download_df[cols_out].to_cs
 
 # --- 5. ANALYTICS SECTION ---
 st.markdown("---")
-st.subheader("📊 Deep Dive: The Value of Data Screening")
+st.subheader("📊 Deep Dive: Why Ranking and Screening is Better than Random Selection")
 
 c1, c2, c3, c4 = st.columns(4)
 risk_diff = res_faura["Total Risk Targeted"] - res_rand["Total Risk Targeted"]
