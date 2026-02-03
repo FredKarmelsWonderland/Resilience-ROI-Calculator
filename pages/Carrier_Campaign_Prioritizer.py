@@ -138,7 +138,6 @@ st.markdown("""
 target_df = res_faura['Selection'].copy()
 np.random.seed(99) 
 
-# UPDATED: Changed Strings to "P(Ignition)"
 outcomes = ["Status Quo", "P(Ignition) Halved", "P(Ignition) Quartered"]
 multipliers = [1.0, 0.5, 0.25]
 probs = [0.85, 0.10, 0.05] 
@@ -182,17 +181,13 @@ target_df["Display_Loss_New"] = target_df["New_Expected_Loss"].apply(format_curr
 target_df["Display_Prem"] = target_df["Annual_Premium"].apply(format_currency_csv)
 target_df["Display_Gap"] = (target_df["Expected_Loss_Annual"] - target_df["Annual_Premium"]).apply(format_currency_csv)
 
-# NEW: New Net Loss Gap
-target_df["New_Underwriting_Gap"] = target_df["New_Expected_Loss"] - target_df["Annual_Premium"]
-target_df["Display_New_Gap"] = target_df["New_Underwriting_Gap"].apply(format_currency_csv)
-
 # UPDATED: P(Fire) as Decimal, P(Ignition) as Decimal
 target_df["Display_Prob"] = target_df["Fire_Prob"].map("{:.4f}".format)
 target_df["Display_Ignition"] = target_df["Susceptibility"].map("{:.2f}".format)
 
 st.dataframe(
     target_df.sort_values("Annual_Savings", ascending=False)[
-        ["Policy ID", "Display_TIV", "Display_Prob", "Display_Ignition", "Display_Prem", "Display_Loss_SQ", "Display_Gap", "Outcome_Type", "Display_Loss_New", "Display_New_Gap"]
+        ["Policy ID", "Display_TIV", "Display_Prob", "Display_Ignition", "Display_Prem", "Display_Loss_SQ", "Display_Gap", "Outcome_Type", "Display_Loss_New"]
     ],
     column_config={
         "Display_TIV": "TIV",
@@ -200,10 +195,9 @@ st.dataframe(
         "Display_Ignition": "P(Ignition)",
         "Display_Prem": "Annual Premium",
         "Display_Loss_SQ": "Gross Expected Loss",
-        "Display_Gap": "Net Loss Gap (Old)",
+        "Display_Gap": "Net Loss Gap",
         "Outcome_Type": "Simulated Outcome",
         "Display_Loss_New": "New Expected Loss",
-        "Display_New_Gap": st.column_config.TextColumn("New Net Loss Gap", help="New Expected Loss - Premium. Shows if the policy is now profitable."),
     },
     use_container_width=True
 )
@@ -218,7 +212,7 @@ download_df["Annual_Savings"] = download_df["Annual_Savings"].apply(format_curre
 download_df["Fire_Prob"] = download_df["Fire_Prob"].round(4)
 download_df["Susceptibility"] = download_df["Susceptibility"].round(2)
 
-cols_out = ["Policy ID", "TIV", "Fire_Prob", "Susceptibility", "Expected_Loss_Annual", "Annual_Premium", "Outcome_Type", "New_Expected_Loss", "New_Underwriting_Gap"]
+cols_out = ["Policy ID", "TIV", "Fire_Prob", "Susceptibility", "Expected_Loss_Annual", "Annual_Premium", "Outcome_Type", "New_Expected_Loss"]
 st.download_button("📥 Download Simulation (CSV)", download_df[cols_out].to_csv(index=False), "faura_simulation.csv")
 
 # --- 5. ANALYTICS SECTION ---
