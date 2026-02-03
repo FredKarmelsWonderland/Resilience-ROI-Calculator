@@ -52,17 +52,27 @@ mitigation_incentive = 300
 # --- PHILOSOPHY & SCENARIO SECTION ---
 st.markdown("### The Pilot Scenario")
 
-# UPDATED: No columns here anymore. Full width text.
-st.info(f"""
-1.  Carrier provides a list of **{total_homes_count:,} homes** that we screen at **${screening_cost_per}/address**, ranking them by underwriting risk.
-2.  We target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**, generating personalized resilience reports with a **follow on** home-feature survey.
-
-**The "Pay-for-Performance" Funnel:**
-* **Engagement:** Homeowners who fill out the home-feature survey get **${psa_incentive}**.
-* **Mitigation:** Homeowners who mitigate risk that was previously unmitigated get an additional **${mitigation_incentive}**.
-* *Result:* Your budget dollars primarily pay for risk-reducing performance, not just outreach.
-""")
-
+c1, c2 = st.columns([2, 1])
+with c1:
+    st.info(f"""
+    1.  Carrier provides a list of **{total_homes_count:,} homes** that we screen at **${screening_cost_per}/address**, ranking them by underwriting risk.
+    2.  We target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**, generating personalized resilience reports with a **follow on** home-feature survey.
+    
+    **The "Pay-for-Performance" Funnel:**
+    * **Engagement:** Homeowners who fill out the home-feature survey get **${psa_incentive}**.
+    * **Mitigation:** Homeowners who mitigate risk that was previously unmitigated get an additional **${mitigation_incentive}**.
+    * *Result:* Your budget dollars primarily pay for risk-reducing performance, not just outreach.
+    """)
+with c2:
+    # UPDATED: CREDIBLE RISK MODELING EXPLANATION
+    st.markdown(r"""
+    **The "Vulnerability" Gap:**
+    $$
+    \text{Risk} = \text{TIV} \times \underbrace{P(\text{Fire})}_\text{Hazard} \times \underbrace{P(\text{Ignition})}_\text{Vulnerability}
+    $$
+    * **Hazard (P_Fire):** Probability of Wildfire.
+    * **Vulnerability (P_Ignition):** Probability of Ignition if Fire occurs. [Faura uses its Proprietary Quick Assessment score for this].
+    """)
 
 # ==============================================================================
 #  👇👇👇 VULNERABILITY ALGORITHM & DATA ENGINE MOVED TO BOTTOM 👇👇👇
@@ -167,7 +177,8 @@ target_df["Row_Cost"] = target_df["Outcome_Type"].apply(calculate_row_cost)
 
 # D. Calculate NET Metrics
 target_df["Net"] = target_df["Annual_Premium"] - target_df["Expected_Loss_Annual"]
-target_df["New Net"] = target_df["Annual_Premium"] - target_df["New_Expected_Loss"] - target_df["Row_Cost"]
+# NEW METRIC: Change in Expected Loss (New - Gross). Negative is Good (Reduction).
+target_df["Change_In_Loss"] = target_df["New_Expected_Loss"] - target_df["Expected_Loss_Annual"]
 
 # E. Aggregates for Top Cards
 total_savings = target_df["Annual_Savings"].sum()
@@ -184,13 +195,13 @@ m4.metric("Avg Savings per Success", f"${total_savings / denom:,.0f}" if denom >
 # F. PREPARE DISPLAY TABLE (Styling)
 display_cols = [
     "Policy ID", "TIV", "Annual_Premium", "Fire_Prob", "Susceptibility", 
-    "Expected_Loss_Annual", "Net", "Outcome_Type", "New_Expected_Loss", "New Net"
+    "Expected_Loss_Annual", "Net", "Outcome_Type", "New_Expected_Loss", "Change_In_Loss"
 ]
 style_df = target_df[display_cols].copy()
 
 style_df.columns = [
     "Policy ID", "TIV", "Annual Premium", "P(Fire)", "P(Ignition)", 
-    "Gross Expected Loss", "Net", "Outcome", "New Expected Loss", "New Net"
+    "Gross Expected Loss", "Net", "Outcome", "New Expected Loss", "Change in Exp. Loss"
 ]
 
 def fmt_currency(x):
@@ -201,8 +212,17 @@ def fmt_currency(x):
     else:
         return f"${x:,.0f}"
 
-def color_net(val):
+# Color Logic: 
+# Net Profit: Positive is Green.
+# Loss Change: Negative (Reduction) is Green.
+def color_profit(val):
     color = '#ff4b4b' if val < 0 else '#09ab3b' # Red/Green
+    return f'color: {color}'
+
+def color_loss_reduction(val):
+    # If val < 0 (Reduction), Green. If val > 0 (Increase), Red.
+    color = '#09ab3b' if val < 0 else '#ff4b4b'
+    if val == 0: color = 'inherit'
     return f'color: {color}'
 
 st.dataframe(
@@ -213,11 +233,12 @@ st.dataframe(
         "Gross Expected Loss": fmt_currency,
         "Net": fmt_currency,
         "New Expected Loss": fmt_currency,
-        "New Net": fmt_currency,
+        "Change in Exp. Loss": fmt_currency,
         "P(Fire)": "{:.4f}",
         "P(Ignition)": "{:.2f}"
     })
-    .map(color_net, subset=["Net", "New Net"]),
+    .map(color_profit, subset=["Net"])
+    .map(color_loss_reduction, subset=["Change in Exp. Loss"]),
     use_container_width=True,
     height=500
 )
@@ -228,7 +249,7 @@ download_df["Fire_Prob"] = download_df["Fire_Prob"].round(4)
 download_df["Susceptibility"] = download_df["Susceptibility"].round(2)
 download_df = download_df.round(0)
 
-cols_out = ["Policy ID", "TIV", "Fire_Prob", "Susceptibility", "Expected_Loss_Annual", "Annual_Premium", "Net", "Outcome_Type", "New_Expected_Loss", "Row_Cost", "New Net"]
+cols_out = ["Policy ID", "TIV", "Fire_Prob", "Susceptibility", "Expected_Loss_Annual", "Annual_Premium", "Net", "Outcome_Type", "New_Expected_Loss", "Change_In_Loss"]
 st.download_button("📥 Download Simulation (CSV)", download_df[cols_out].to_csv(index=False), "faura_simulation.csv")
 
 # --- 5. ANALYTICS SECTION ---
