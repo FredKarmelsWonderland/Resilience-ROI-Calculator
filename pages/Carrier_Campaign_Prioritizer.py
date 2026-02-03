@@ -43,12 +43,13 @@ with c1:
     **The Constraints:**
     1.  Carrier provides a raw list of **1,000 homes**.
     2.  **Step 1 (Screening):** We screen *all* 1,000 homes at **${screening_cost_per}/address** to generate our ranking/targeting scores.
-    3.  **Step 2 (Outreach):** We target the top **200 homes** with a pilot outreach budget of **${outreach_cost_per}/home**.
+    3.  **Step 2 (Outreach):** We target the top **200 homes** with a pilot outreach budget of **${outreach_cost_per}/home**, generating personalized resilience reports with a follow on home-feature survey.
+    
     
     **The "Pay-for-Performance" Funnel:**
-    * **25% Engagement:** Homeowners who fill out the PSA get **${psa_incentive}**.
-    * **15% Mitigation:** Homeowners who verify risk reduction get an additional **${mitigation_incentive}**.
-    * *Result:* We don't waste budget on non-responders. We pay for results.
+    * **25% Engagement:** Homeowners who fill out the home feature survey get **${psa_incentive}**.
+    * **15% Mitigation:** Homeowners who mitigate risk that was previously unmitigated get an additional **${mitigation_incentive}**.
+    * *Result:* Your budget dollars primarily pay for performance, not just outreach.
     """)
 with c2:
     st.markdown("""
