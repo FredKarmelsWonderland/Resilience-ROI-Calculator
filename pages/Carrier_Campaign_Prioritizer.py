@@ -32,7 +32,6 @@ st.title("🎯 Pure Risk Prioritization Engine")
 st.sidebar.header("Simulation Parameters")
 
 st.sidebar.subheader("1. Portfolio Scope")
-# Updated per user snippet (Min 100 to prevent crash)
 total_homes_count = st.sidebar.slider("Total Portfolio Size (to Screen)", 100, 1000, 100, step=100)
 budget_count = st.sidebar.slider("Pilot Target Size", 10, 1000, 100, step=10)
 
@@ -47,7 +46,6 @@ st.markdown("### The Pilot Scenario")
 
 c1, c2 = st.columns([2, 1])
 with c1:
-    # UPDATED TEXT SNIPPET
     st.info(f"""
     1.  Carrier provides a raw list of **{total_homes_count:,} homes** with address, premium, TIV.
     2.  **Step 1 (Screening):** We screen *all* {total_homes_count:,} homes at **${screening_cost_per}/address** to algorithmically generate our ranking/targeting funnel.
@@ -65,7 +63,7 @@ with c2:
     \text{Risk} = \text{TIV} \times P(\text{Fire}) \times P(\text{Ignition})
     $$
     *Most carriers assume Ignition is 100%.*
-    *Faura calculates specific Susceptibility via QA Score.*
+    *Faura calculates specific P(Ignition) via QA Score.*
     """)
 
 # --- 1. DATA GENERATION ---
@@ -77,7 +75,7 @@ def generate_portfolio(n):
     tiv = np.random.lognormal(mean=13.5, sigma=0.6, size=n)
     tiv = np.clip(tiv, 250000, 5000000)
     
-    # 2. Fire Probability (0.1% to 2.5%)
+    # 2. Fire Probability (0.1% to 2.5%) - "P(Reach)"
     prob_fire = np.random.beta(2, 50, size=n) 
     prob_fire = np.clip(prob_fire, 0.001, 0.025)
     
@@ -96,7 +94,7 @@ def generate_portfolio(n):
     rate = np.random.uniform(0.002, 0.008, size=n)
     df["Annual_Premium"] = df["TIV"] * rate
     
-    # Susceptibility Factor (100 - Score)
+    # RENAMED: MDR -> P(Ignition)
     df["Susceptibility"] = ((100 - df["Resilience_Score"]) / 100).clip(lower=0.10)
     
     # Gross Expected Loss
@@ -113,7 +111,6 @@ df["Rank_Random"] = np.random.rand(len(df))
 
 # --- 3. RUN SIMULATION ---
 def evaluate_campaign(rank_col, name):
-    # Safe slicing in case budget > total
     safe_budget = min(budget_count, len(df))
     campaign = df.sort_values(rank_col, ascending=False).head(safe_budget)
     return {
@@ -126,21 +123,23 @@ def evaluate_campaign(rank_col, name):
 res_faura = evaluate_campaign("Rank_Risk", "Faura Risk Prioritized")
 res_rand  = evaluate_campaign("Rank_Random", "Random Outreach (Control)")
 
-# --- 4. CAMPAIGN ROI SECTION (MOVED UP) ---
+# --- 4. CAMPAIGN ROI SECTION ---
 st.markdown("---")
 st.subheader(f"📋 Campaign ROI Projection")
+st.caption("Note: Values for TIV, Premium, and Probability below are **simulated** for this demonstration. In a live pilot, we would ingest your actual portfolio data.")
 st.markdown("""
 **Scenario Assumptions:**
 * **85%** Status Quo (Non-Responsive)
-* **10%** Reduce Susceptibility by 50% (Halved Ignition Prob.)
-* **5%** Reduce Susceptibility by 75% (Quartered Ignition Prob.)
+* **10%** Reduce P(Ignition) by 50% (Halved)
+* **5%** Reduce P(Ignition) by 75% (Quartered)
 """)
 
 # A. Apply Simulation Logic
 target_df = res_faura['Selection'].copy()
 np.random.seed(99) 
 
-outcomes = ["Status Quo", "Susceptibility Halved", "Susceptibility Quartered"]
+# UPDATED: Changed Strings to "P(Ignition)"
+outcomes = ["Status Quo", "P(Ignition) Halved", "P(Ignition) Quartered"]
 multipliers = [1.0, 0.5, 0.25]
 probs = [0.85, 0.10, 0.05] 
 
@@ -149,15 +148,12 @@ target_df["Loss_Multiplier"] = target_df["Outcome_Type"].replace(dict(zip(outcom
 target_df["New_Expected_Loss"] = target_df["Expected_Loss_Annual"] * target_df["Loss_Multiplier"]
 target_df["Annual_Savings"] = target_df["Expected_Loss_Annual"] - target_df["New_Expected_Loss"]
 
-# B. Aggregate Savings & ROI (Fixed Cost Model)
+# B. Aggregate Savings & ROI
 total_savings = target_df["Annual_Savings"].sum()
 
 # COST CALCULATION
-# 1. Screening: All Homes
 c_screen = len(df) * screening_cost_per
-# 2. Outreach: Target Homes (Fixed Fee)
 c_engage = len(target_df) * outreach_cost_per
-# 3. Incentives
 c_psa = (len(target_df) * 0.25) * psa_incentive
 c_mitigation = (len(target_df) * 0.15) * mitigation_incentive
 
@@ -179,30 +175,35 @@ def format_currency_csv(val):
     elif val >= 1000: return f"${val/1000:.0f}K"
     else: return f"${val:.0f}"
 
-def format_pct_csv(val):
-    return f"{val*100:.2f}%"
-
 # E. Display Table
 target_df["Display_TIV"] = target_df["TIV"].apply(format_currency_csv)
 target_df["Display_Loss_SQ"] = target_df["Expected_Loss_Annual"].apply(format_currency_csv)
 target_df["Display_Loss_New"] = target_df["New_Expected_Loss"].apply(format_currency_csv)
 target_df["Display_Prem"] = target_df["Annual_Premium"].apply(format_currency_csv)
 target_df["Display_Gap"] = (target_df["Expected_Loss_Annual"] - target_df["Annual_Premium"]).apply(format_currency_csv)
-target_df["Display_Prob"] = (target_df["Fire_Prob"] * 100).map("{:.2f}%".format)
+
+# NEW: New Net Loss Gap
+target_df["New_Underwriting_Gap"] = target_df["New_Expected_Loss"] - target_df["Annual_Premium"]
+target_df["Display_New_Gap"] = target_df["New_Underwriting_Gap"].apply(format_currency_csv)
+
+# UPDATED: P(Fire) as Decimal, P(Ignition) as Decimal
+target_df["Display_Prob"] = target_df["Fire_Prob"].map("{:.4f}".format)
 target_df["Display_Ignition"] = target_df["Susceptibility"].map("{:.2f}".format)
 
 st.dataframe(
     target_df.sort_values("Annual_Savings", ascending=False)[
-        ["Policy ID", "Display_TIV", "Display_Prob", "Display_Ignition", "Display_Loss_SQ", "Display_Prem", "Display_Gap", "Outcome_Type", "Display_Loss_New"]
+        ["Policy ID", "Display_TIV", "Display_Prob", "Display_Ignition", "Display_Prem", "Display_Loss_SQ", "Display_Gap", "Outcome_Type", "Display_Loss_New", "Display_New_Gap"]
     ],
     column_config={
         "Display_TIV": "TIV",
         "Display_Prob": "P(Fire)",
         "Display_Ignition": "P(Ignition)",
-        "Display_Loss_SQ": "Gross Expected Loss",
         "Display_Prem": "Annual Premium",
-        "Display_Gap": "Net Loss Gap",
+        "Display_Loss_SQ": "Gross Expected Loss",
+        "Display_Gap": "Net Loss Gap (Old)",
+        "Outcome_Type": "Simulated Outcome",
         "Display_Loss_New": "New Expected Loss",
+        "Display_New_Gap": st.column_config.TextColumn("New Net Loss Gap", help="New Expected Loss - Premium. Shows if the policy is now profitable."),
     },
     use_container_width=True
 )
@@ -214,19 +215,17 @@ download_df["Expected_Loss_Annual"] = download_df["Expected_Loss_Annual"].apply(
 download_df["Annual_Premium"] = download_df["Annual_Premium"].apply(format_currency_csv)
 download_df["New_Expected_Loss"] = download_df["New_Expected_Loss"].apply(format_currency_csv)
 download_df["Annual_Savings"] = download_df["Annual_Savings"].apply(format_currency_csv)
-download_df["Fire_Prob"] = download_df["Fire_Prob"].apply(format_pct_csv)
+download_df["Fire_Prob"] = download_df["Fire_Prob"].round(4)
 download_df["Susceptibility"] = download_df["Susceptibility"].round(2)
 
-cols_out = ["Policy ID", "TIV", "Fire_Prob", "Susceptibility", "Expected_Loss_Annual", "Annual_Premium", "Outcome_Type", "New_Expected_Loss", "Annual_Savings"]
+cols_out = ["Policy ID", "TIV", "Fire_Prob", "Susceptibility", "Expected_Loss_Annual", "Annual_Premium", "Outcome_Type", "New_Expected_Loss", "New_Underwriting_Gap"]
 st.download_button("📥 Download Simulation (CSV)", download_df[cols_out].to_csv(index=False), "faura_simulation.csv")
 
-# --- 5. "WHY THIS WORKS" SECTION (MOVED DOWN) ---
+# --- 5. ANALYTICS SECTION ---
 st.markdown("---")
 st.subheader("📊 Deep Dive: The Value of Data Screening")
-st.markdown("*Why not just randomly select homes? Because risk is not evenly distributed.*")
 
 c1, c2, c3, c4 = st.columns(4)
-
 risk_diff = res_faura["Total Risk Targeted"] - res_rand["Total Risk Targeted"]
 risk_lift_pct = (risk_diff / res_rand["Total Risk Targeted"]) * 100 if res_rand["Total Risk Targeted"] > 0 else 0
 
@@ -235,7 +234,6 @@ c2.metric("Gross Risk Targeted (Random)", f"${res_rand['Total Risk Targeted']:,.
 c3.metric("Risk Intelligence Value", f"${risk_diff:,.0f}", help="The extra risk exposure captured purely by using Faura's sorting algorithm vs random selection.")
 c4.metric("Avg Premium (Target Group)", f"${res_faura['Selection']['Annual_Premium'].mean():,.0f}")
 
-# Lift Chart
 def get_lift_curve(rank_col, name):
     sorted_df = df.sort_values(rank_col, ascending=False).reset_index(drop=True)
     sorted_df["Cum_Risk"] = sorted_df["Expected_Loss_Annual"].cumsum()
