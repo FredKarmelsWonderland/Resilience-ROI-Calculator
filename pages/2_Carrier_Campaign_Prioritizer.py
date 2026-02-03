@@ -25,7 +25,7 @@ def check_password():
 if not check_password():
     st.stop()
 
-# --- MAIN CONTENT ---
+# --- MAIN UI STARTS HERE ---
 st.title("🎯 Pure Risk Prioritization Engine")
 
 # --- SIDEBAR: DYNAMIC INPUTS ---
@@ -52,29 +52,22 @@ mitigation_incentive = 300
 # --- PHILOSOPHY & SCENARIO SECTION ---
 st.markdown("### The Pilot Scenario")
 
-c1, c2 = st.columns([2, 1])
-with c1:
-    st.info(f"""
-    1.  Carrier provides a list of **{total_homes_count:,} homes** that we screen at **${screening_cost_per}/address**, ranking them by underwriting risk.
-    2.  We target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**, generating personalized resilience reports with a **follow on** home-feature survey.
-    
-    **The "Pay-for-Performance" Funnel:**
-    * **Engagement:** Homeowners who fill out the home-feature survey get **${psa_incentive}**.
-    * **Mitigation:** Homeowners who mitigate risk that was previously unmitigated get an additional **${mitigation_incentive}**.
-    * *Result:* Your budget dollars primarily pay for risk-reducing performance, not just outreach.
-    """)
-with c2:
-    # UPDATED: CREDIBLE RISK MODELING EXPLANATION
-    st.markdown(r"""
-    **The "Vulnerability" Gap:**
-    $$
-    \text{Risk} = \text{TIV} \times \underbrace{P(\text{Fire})}_\text{Hazard} \times \underbrace{P(\text{Ignition})}_\text{Vulnerability}
-    $$
-    * **Hazard (P_Fire):** Probability of Wildfire.
-    * **Vulnerability (P_Ignition):** Probability of Ignition if Fire occurs. [Faura uses its Proprietary Quick Assessment score for this].
-    """)
+# UPDATED: No columns here anymore. Full width text.
+st.info(f"""
+1.  Carrier provides a list of **{total_homes_count:,} homes** that we screen at **${screening_cost_per}/address**, ranking them by underwriting risk.
+2.  We target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**, generating personalized resilience reports with a **follow on** home-feature survey.
 
-# --- 1. DATA GENERATION ---
+**The "Pay-for-Performance" Funnel:**
+* **Engagement:** Homeowners who fill out the home-feature survey get **${psa_incentive}**.
+* **Mitigation:** Homeowners who mitigate risk that was previously unmitigated get an additional **${mitigation_incentive}**.
+* *Result:* Your budget dollars primarily pay for risk-reducing performance, not just outreach.
+""")
+
+
+# ==============================================================================
+#  👇👇👇 VULNERABILITY ALGORITHM & DATA ENGINE MOVED TO BOTTOM 👇👇👇
+# ==============================================================================
+
 @st.cache_data
 def generate_portfolio(n):
     np.random.seed(42)
@@ -112,6 +105,7 @@ def generate_portfolio(n):
 
     return df
 
+# --- EXECUTE ENGINE ---
 df = generate_portfolio(total_homes_count)
 
 # --- 2. STRATEGY LOGIC ---
@@ -268,3 +262,15 @@ fig = px.line(lift_data, x="% Homes Targeted", y="Cum_Risk", color="Strategy",
 fig.add_vline(x=budget_count/len(df), line_dash="dash", line_color="grey", annotation_text="Pilot Budget")
 fig.update_layout(height=450, xaxis_tickformat=".0%", yaxis_tickprefix="$", yaxis_title="Cumulative Gross Expected Loss ($)")
 st.plotly_chart(fig, use_container_width=True)
+
+# --- 6. FOOTER: EQUATION DISPLAY (MOVED HERE) ---
+st.markdown("---")
+st.subheader("🧮 The Logic Behind the Score")
+st.markdown(r"""
+**The "Vulnerability" Gap:**
+$$
+\text{Risk} = \text{TIV} \times \underbrace{P(\text{Fire})}_\text{Hazard} \times \underbrace{P(\text{Ignition})}_\text{Vulnerability}
+$$
+* **Hazard (P_Fire):** Probability of Wildfire.
+* **Vulnerability (P_Ignition):** Probability of Ignition if Fire occurs. [Faura uses its Proprietary Quick Assessment score for this].
+""")
