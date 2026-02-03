@@ -52,7 +52,7 @@ mitigation_incentive = 300
 # --- PHILOSOPHY & SCENARIO SECTION ---
 st.markdown("### The Pilot Scenario")
 
-c1, c2 = st.columns([2, 1])
+c1 = st.columns([1, 1])
 with c1:
     st.info(f"""
     1.  Carrier provides a list of **{total_homes_count:,} homes** that we screen at **${screening_cost_per}/address**, ranking them by underwriting risk.
@@ -63,20 +63,6 @@ with c1:
     * **Mitigation:** Homeowners who mitigate risk that was previously unmitigated get an additional **${mitigation_incentive}**.
     * *Result:* Your budget dollars primarily pay for risk-reducing performance, not just outreach.
     """)
-with c2:
-    # UPDATED: CREDIBLE RISK MODELING EXPLANATION
-    st.markdown(r"""
-    **The "Vulnerability" Gap:**
-    $$
-    \text{Risk} = \text{TIV} \times \underbrace{P(\text{Fire})}_\text{Hazard} \times \underbrace{P(\text{Ignition})}_\text{Vulnerability}
-    $$
-    * **Hazard (P_Fire):** Probability of Wildfire.
-    * **Vulnerability (P_Ignition):** Probability of Ignition if Fire occurs. [Faura uses its Proprietary Quick Assessment score for this].
-    """)
-
-# ==============================================================================
-#  👇👇👇 VULNERABILITY ALGORITHM & DATA ENGINE MOVED TO BOTTOM 👇👇👇
-# ==============================================================================
 
 @st.cache_data
 def generate_portfolio(n):
