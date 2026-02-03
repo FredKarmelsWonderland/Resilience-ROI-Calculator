@@ -32,7 +32,6 @@ st.title("🎯 Pure Risk Prioritization Engine")
 st.sidebar.header("Simulation Parameters")
 
 st.sidebar.subheader("1. Portfolio Scope")
-# CHANGED: Now using Number Inputs with new defaults (500 / 100)
 total_homes_count = st.sidebar.number_input("Total Portfolio Size (to Screen)", value=500, min_value=100, step=50)
 budget_count = st.sidebar.number_input("Pilot Target Size", value=100, min_value=10, step=10)
 
@@ -48,9 +47,9 @@ st.markdown("### The Pilot Scenario")
 c1, c2 = st.columns([2, 1])
 with c1:
     st.info(f"""
-    1.  Carrier provides a raw list of **{total_homes_count:,} homes** with address, premium, and TIV.
-    2.  We screen *all* {total_homes_count:,} homes at **${screening_cost_per}/address** to algorithmically generate our ranking/targeting funnel.
-    3.  We target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**, generating personalized resilience reports with a follow on home-feature survey.
+    1.  Carrier provides a raw list of **{total_homes_count:,} homes** with home address, premium, TIV, and email.
+    2.  **Step 1 (Screening):** We screen *all* {total_homes_count:,} homes at **${screening_cost_per}/address** to algorithmically generate our ranking/targeting funnel.
+    3.  **Step 2 (Outreach):** We target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**, generating personalized resilience reports with a follow on home-feature survey.
     
     **The "Pay-for-Performance" Funnel:**
     * **25% Engagement:** Homeowners who fill out the home feature survey get **${psa_incentive}**.
@@ -58,13 +57,15 @@ with c1:
     * *Result:* Your budget dollars primarily pay for performance, not just outreach.
     """)
 with c2:
+    # UPDATED: CREDIBLE RISK MODELING EXPLANATION
     st.markdown(r"""
-    **The "Ignition" Algorithm:**
+    **The "Vulnerability" Gap:**
     $$
-    \text{Risk} = \text{TIV} \times P(\text{Fire}) \times P(\text{Ignition})
+    \text{Risk} = \text{TIV} \times \underbrace{P(\text{Fire})}_\text{Hazard} \times \underbrace{P(\text{Ignition})}_\text{Vulnerability}
     $$
-    *Most carriers assume Ignition is 100%.*
-    *Faura calculates specific P(Ignition) via QA Score.*
+    * **Hazard (P_Fire):** Carriers model this well (e.g., Zesty, CoreLogic).
+    * **Vulnerability (P_Ignition):** Often modeled as a constant **"Standard Default"** due to missing on-site data.
+    * **The Faura Lift:** We replace the generic default with a **Verified Hardening Score**, proving P(Ignition) is lower than the model assumes.
     """)
 
 # --- 1. DATA GENERATION ---
@@ -113,7 +114,6 @@ df["Rank_Random"] = np.random.rand(len(df))
 
 # --- 3. RUN SIMULATION ---
 def evaluate_campaign(rank_col, name):
-    # Safety Check: Cannot pilot more homes than exist in portfolio
     safe_budget = min(budget_count, len(df))
     campaign = df.sort_values(rank_col, ascending=False).head(safe_budget)
     return {
@@ -190,7 +190,6 @@ style_df.columns = [
     "Gross Expected Loss", "Net", "Outcome", "New Expected Loss", "New Net"
 ]
 
-# Custom Formatter
 def fmt_currency(x):
     if abs(x) >= 1_000_000:
         return f"${x/1_000_000:.2f}M"
