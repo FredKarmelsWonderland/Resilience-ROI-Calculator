@@ -153,14 +153,15 @@ target_df["Annual_Savings"] = target_df["Expected_Loss_Annual"] - target_df["New
 # B. Calculate Aggregate Savings
 total_savings = target_df["Annual_Savings"].sum()
 program_cost = budget_count * 150 # Assumption: $150 per home engagement cost
-roi = (total_savings - program_cost) / program_cost
+roi = (total_savings - program_cost) / program_cost if program_cost > 0 else 0
 
 # C. Display Summary Metrics
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Projected Annual Savings", f"${total_savings:,.0f}", help="Total reduction in expected loss based on simulation.")
 m2.metric("Program ROI", f"{roi:.1f}x", help="Assuming $150 cost per home engaged")
 m3.metric("Homes Improved", f"{len(target_df[target_df['Outcome_Type'] != 'Status Quo'])}", help="15% of target list")
-m4.metric("Avg Savings per Success", f"${total_savings / len(target_df[target_df['Outcome_Type'] != 'Status Quo']):,.0f}")
+m4_denom = len(target_df[target_df['Outcome_Type'] != 'Status Quo'])
+m4.metric("Avg Savings per Success", f"${total_savings / m4_denom:,.0f}" if m4_denom > 0 else "$0")
 
 # D. Format Table for Display
 def format_currency(val):
@@ -172,8 +173,9 @@ target_df["Display_Loss_SQ"] = target_df["Expected_Loss_Annual"].apply(format_cu
 target_df["Display_Loss_New"] = target_df["New_Expected_Loss"].apply(format_currency)
 target_df["Display_Prob"] = target_df["Fire_Prob"] * 100
 
+# FIX IS HERE: SORT BEFORE SELECTING COLUMNS
 st.dataframe(
-    target_df[["Policy ID", "Display_TIV", "Display_Prob", "Display_Loss_SQ", "Outcome_Type", "Display_Loss_New"]].sort_values("Annual_Savings", ascending=False),
+    target_df.sort_values("Annual_Savings", ascending=False)[["Policy ID", "Display_TIV", "Display_Prob", "Display_Loss_SQ", "Outcome_Type", "Display_Loss_New"]],
     column_config={
         "Display_TIV": "TIV",
         "Display_Prob": st.column_config.NumberColumn("Fire Prob", format="%.2f%%"),
