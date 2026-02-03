@@ -51,9 +51,9 @@ with c1:
     2.  We target the top **{budget_count} homes** with a pilot outreach budget of **${outreach_cost_per}/home**, generating personalized resilience reports with a **follow on** home-feature survey.
     
     **The "Pay-for-Performance" Funnel:**
-    * **25% Engagement:** Homeowners who fill out the home-feature survey get **${psa_incentive}**.
-    * **15% Mitigation:** Homeowners who mitigate risk that was previously unmitigated get an additional **${mitigation_incentive}**.
-    * *Result:* Your budget dollars primarily pay for performance, not just outreach.
+    * **Engagement:** Homeowners who fill out the home-feature survey get **${psa_incentive}**.
+    * **Mitigation:** Homeowners who mitigate risk that was previously unmitigated get an additional **${mitigation_incentive}**.
+    * *Result:* Your budget dollars primarily pay for risk-reducing performance, not just outreach.
     """)
 with c2:
     # UPDATED: CREDIBLE RISK MODELING EXPLANATION
