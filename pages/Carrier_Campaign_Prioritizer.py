@@ -35,11 +35,11 @@ st.sidebar.subheader("1. Portfolio Scope")
 total_homes_count = st.sidebar.slider("Total Portfolio Size (to Screen)", 1000, 10000, 1000, step=500)
 budget_count = st.sidebar.slider("Pilot Target Size", 50, 500, 200, step=50)
 
-st.sidebar.subheader("2. Program Costs")
-screening_cost_per = st.sidebar.number_input("Screening Cost per Home ($)", value=3)
-outreach_cost_per = st.sidebar.number_input("Outreach Cost per Home ($)", value=30)
-psa_incentive = st.sidebar.number_input("PSA Engagement Reward ($)", value=50)
-mitigation_incentive = st.sidebar.number_input("Mitigation Reward ($)", value=300)
+# --- FIXED COSTS (Hidden from Sidebar) ---
+screening_cost_per = 3.0
+outreach_cost_per = 30.0
+psa_incentive = 50.0
+mitigation_incentive = 300.0
 
 # --- PHILOSOPHY & SCENARIO SECTION ---
 st.markdown("### The Pilot Scenario")
@@ -157,6 +157,12 @@ st.plotly_chart(fig, use_container_width=True)
 # --- 6. CAMPAIGN SIMULATION ---
 st.markdown("---")
 st.subheader(f"📋 Campaign ROI Projection")
+st.markdown("""
+**Scenario Assumptions:**
+* **85%** Status Quo (Non-Responsive)
+* **10%** Reduce MDR by 50% (Halved)
+* **5%** Reduce MDR by 75% (Quartered)
+""")
 
 # A. Apply Simulation Logic
 target_df = res_faura['Selection'].copy()
@@ -171,14 +177,14 @@ target_df["Loss_Multiplier"] = target_df["Outcome_Type"].replace(dict(zip(outcom
 target_df["New_Expected_Loss"] = target_df["Expected_Loss_Annual"] * target_df["Loss_Multiplier"]
 target_df["Annual_Savings"] = target_df["Expected_Loss_Annual"] - target_df["New_Expected_Loss"]
 
-# B. Aggregate Savings & ROI (Variable Cost Model)
+# B. Aggregate Savings & ROI (Fixed Cost Model)
 total_savings = target_df["Annual_Savings"].sum()
 
 # COST CALCULATION
-# 1. Screening: All Homes (1000 * $3)
+# 1. Screening: All Homes
 c_screen = len(df) * screening_cost_per
 
-# 2. Outreach: Target Homes (200 * $30)
+# 2. Outreach: Target Homes (Fixed Fee)
 c_engage = budget_count * outreach_cost_per
 
 # 3. PSA Incentive: 25% of Targets
@@ -194,7 +200,7 @@ roi = (total_savings - total_program_cost) / total_program_cost if total_program
 # C. Summary Metrics
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Projected Annual Savings", f"${total_savings:,.0f}")
-m2.metric("Total Program Cost", f"${total_program_cost:,.0f}", help=f"Screening (${c_screen:,.0f}) + Outreach (${c_engage:,.0f}) + Performance Incentives")
+m2.metric("Total Program Cost", f"${total_program_cost:,.0f}", help=f"Screening (${c_screen:,.0f}) + Outreach (${c_engage:,.0f}) + Incentives")
 m3.metric("Net Program ROI", f"{roi:.1f}x")
 denom = len(target_df[target_df['Outcome_Type'] != 'Status Quo'])
 m4.metric("Avg Savings per Success", f"${total_savings / denom:,.0f}" if denom > 0 else "$0")
