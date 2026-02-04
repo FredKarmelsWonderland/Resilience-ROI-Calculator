@@ -35,7 +35,6 @@ def load_campaign_data():
             spreadsheet="https://docs.google.com/spreadsheets/d/1Ank5NAk3qCuYKVK7F580aRU5I2DPDJ6lxLSa66PF33o/edit?gid=1749003768#gid=1749003768",
             worksheet="Campaign" 
         )
-        # Force headers to string and strip whitespace
         df.columns = df.columns.astype(str).str.strip()
         return df
     except Exception as e:
@@ -51,7 +50,6 @@ if raw_df.empty:
 # --- 3. FILTERING ACTIVE CAMPAIGN ---
 df = raw_df.copy()
 if "Campaign_Active" in df.columns:
-    # Robust check for "true" inside the cell
     df = df[df["Campaign_Active"].astype(str).str.contains("true", case=False, na=False)]
 else:
     st.error("❌ Column 'Campaign_Active' not found.")
@@ -63,7 +61,6 @@ if df.empty:
 
 # --- 4. HELPER FUNCTIONS ---
 def count_true(column_name):
-    """Counts rows containing true/1/yes case-insensitive"""
     if column_name not in df.columns: return 0
     return df[column_name].astype(str).str.contains("true|1|yes", case=False, na=False).sum()
 
@@ -78,7 +75,7 @@ unsubscribed = count_true("Unsubscribed")
 lite_completed = count_true("Finished Lite PSA form")
 photos_submitted = count_true("Submitted any photos")
 
-# Mitigation Counts (Case Insensitive 'Verified')
+# Mitigation Counts
 mitigation_cols = [c for c in df.columns if c.startswith("Mitigated_")]
 if mitigation_cols:
     mit_df = df[mitigation_cols].astype(str).apply(lambda x: x.str.contains("verified", case=False, na=False))
@@ -86,37 +83,37 @@ if mitigation_cols:
 else:
     mitigated_count = 0
 
-# --- 6. TOP DASHBOARD (UPDATED LOGIC) ---
+# --- 6. TOP DASHBOARD (6 Columns Now) ---
 st.title("📢 Campaign Operations Center")
 st.markdown("### Engagement & Conversion Tracking")
 
-c1, c2, c3, c4, c5 = st.columns(5)
+c1, c2, c3, c4, c5, c6 = st.columns(6)
 
 # 1. Total Sent
 c1.metric("Emails Sent", total_sent, help="Total Active Pilot Group")
 
 # 2. Open Rate
-# Delta: % of Total (Yield)
 open_yield = safe_calc(opened, total_sent)
-c2.metric("Opened Email", opened, f"{open_yield:.0f}% of Total", help=f"{opened} opens out of {total_sent} sent")
+c2.metric("Opened Email", opened, f"{open_yield:.0f}% of Total", help=f"{opened} opens out of {total_sent}")
 
-# 3. Lite Forms
-# Delta: % of Total (Yield) | Help: % of Previous Step (Conversion)
+# 3. Unsubscribes (Moved Here)
+unsub_rate = safe_calc(unsubscribed, total_sent)
+c3.metric("Unsubscribes", unsubscribed, f"{unsub_rate:.1f}% of Total", delta_color="inverse", help="Opt-outs")
+
+# 4. Lite Forms
 lite_yield = safe_calc(lite_completed, total_sent)
 lite_conversion = safe_calc(lite_completed, opened)
-c3.metric("Lite Forms", lite_completed, f"{lite_yield:.0f}% of Total", help=f"Step Conversion: {lite_conversion:.1f}% of Openers")
+c4.metric("Lite Forms", lite_completed, f"{lite_yield:.0f}% of Total", help=f"Step Conversion: {lite_conversion:.1f}% of Openers")
 
-# 4. Photo Submissions
-# Delta: % of Total (Yield) | Help: % of Previous Step (Conversion)
+# 5. Photo Submissions
 photo_yield = safe_calc(photos_submitted, total_sent)
 photo_conversion = safe_calc(photos_submitted, lite_completed)
-c4.metric("Photos Submitted", photos_submitted, f"{photo_yield:.0f}% of Total", help=f"Step Conversion: {photo_conversion:.1f}% of Lite Forms")
+c5.metric("Photos Submitted", photos_submitted, f"{photo_yield:.0f}% of Total", help=f"Step Conversion: {photo_conversion:.1f}% of Lite Forms")
 
-# 5. Verified Fixes
-# Delta: % of Total (Yield) | Help: % of Previous Step (Conversion)
+# 6. Verified Fixes
 fix_yield = safe_calc(mitigated_count, total_sent)
 fix_conversion = safe_calc(mitigated_count, photos_submitted)
-c5.metric("Verified Fixes", mitigated_count, f"{fix_yield:.0f}% of Total", help=f"Step Conversion: {fix_conversion:.1f}% of Submissions")
+c6.metric("Verified Fixes", mitigated_count, f"{fix_yield:.0f}% of Total", help=f"Step Conversion: {fix_conversion:.1f}% of Submissions")
 
 st.markdown("---")
 
@@ -127,24 +124,40 @@ with col_funnel:
     st.subheader("📉 Campaign Conversion Funnel")
     stages = ["Emails Sent", "Opened Email", "Completed Lite Form", "Submitted Photos", "Verified Value-Add"]
     values = [total_sent, opened, lite_completed, photos_submitted, mitigated_count]
+    
     fig_funnel = go.Figure(go.Funnel(
         y = stages, x = values, textinfo = "value+percent initial",
-        marker = {"color": ["#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A"]}
+        marker = {"color": ["#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A"]},
+        # INCREASED FONT SIZE HERE
+        textfont = dict(size=14, color="white")
     ))
-    fig_funnel.update_layout(margin=dict(l=20, r=20, t=20, b=20), height=400)
+    # INCREASED HEIGHT FOR BETTER READABILITY
+    fig_funnel.update_layout(
+        margin=dict(l=20, r=20, t=20, b=20), 
+        height=450,
+        font=dict(size=14) 
+    )
     st.plotly_chart(fig_funnel, use_container_width=True)
 
 with col_details:
-    st.subheader("❌ Negative Feedback")
-    st.metric("Unsubscribes", unsubscribed, f"{safe_calc(unsubscribed, total_sent):.1f}% of total")
-    st.markdown("#### Top Verified Fixes")
+    # Removed "Negative Feedback" Header
+    st.subheader("🏆 Top Verified Fixes")
+    
     if mitigation_cols:
         mit_counts = df[mitigation_cols].astype(str).apply(lambda x: x.str.contains("verified", case=False, na=False).sum())
         mit_counts = mit_counts[mit_counts > 0].sort_values(ascending=True)
         if not mit_counts.empty:
             mit_counts.index = [x.replace("Mitigated_", "").replace("_", " ") for x in mit_counts.index]
-            fig_bar = px.bar(x=mit_counts.values, y=mit_counts.index, orientation='h', title="Verified Fixes")
-            fig_bar.update_layout(showlegend=False, xaxis_title="Count", yaxis_title="Feature")
+            
+            # Taller chart with clearer font
+            fig_bar = px.bar(x=mit_counts.values, y=mit_counts.index, orientation='h')
+            fig_bar.update_layout(
+                showlegend=False, 
+                xaxis_title="Count", 
+                yaxis_title=None,
+                height=400,
+                font=dict(size=13)
+            )
             st.plotly_chart(fig_bar, use_container_width=True)
         else:
             st.info("No verified mitigations found.")
