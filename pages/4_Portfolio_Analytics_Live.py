@@ -53,7 +53,7 @@ def load_data():
         
         # Read the specific Worksheet
         df = conn.read(
-            spreadsheet="Fake Campaign Demo 2-3-26",
+            spreadsheet="https://docs.google.com/spreadsheets/d/1Ank5NAk3qCuYKVK7F580aRU5I2DPDJ6lxLSa66PF33o/edit?gid=696390753#gid=696390753",
             usecols=list(range(30)) # Safely grab the first ~30 columns to avoid empty trailing cols
         )
         
