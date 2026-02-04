@@ -36,7 +36,6 @@ def load_data():
         conn = st.connection("gsheets", type=GSheetsConnection)
         
         # Read the 'Scored' tab specifically
-        # PASTE YOUR FULL GOOGLE SHEET URL BELOW inside the quotes
         df = conn.read(
             spreadsheet="https://docs.google.com/spreadsheets/d/1Ank5NAk3qCuYKVK7F580aRU5I2DPDJ6lxLSa66PF33o/edit?gid=696390753#gid=696390753", 
             worksheet="Scored"
@@ -91,20 +90,17 @@ col4.metric("Avg Resilience Score", f"{avg_score:.1f}/100", delta="Target: >75",
 st.markdown("---")
 
 # --- 4. VISUAL ANALYTICS ---
-twith t1:
+t1, t2 = st.tabs(["📉 Profitability Distribution", "🔥 Risk Factors Analysis"])
+
+with t1:
     # 1. Histogram (Full Width)
     st.subheader("Distribution of Net Profit/Loss")
-    fig_hist = px.histogram(
-        df, 
-        x="carrier_net", 
-        nbins=50, 
-        color_discrete_sequence=["#636EFA"]
-    )
+    fig_hist = px.histogram(df, x="carrier_net", nbins=50, color_discrete_sequence=["#636EFA"])
     fig_hist.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="Breakeven")
     fig_hist.update_layout(xaxis_title="Net Profit ($)", yaxis_title="Count of Homes")
     st.plotly_chart(fig_hist, use_container_width=True)
 
-    st.markdown("---") # Visual separator
+    st.markdown("---") 
 
     # 2. Scatter Plot (Full Width)
     st.subheader("Correlation: Resilience vs. Profitability")
@@ -127,7 +123,6 @@ with t2:
         st.plotly_chart(fig_ign, use_container_width=True)
     with c2:
         st.subheader("Year Built")
-        # Updated to match your exact column name
         fig_year = px.histogram(df, x="Primary_Year_Built_PL", title="Construction Year", nbins=30, color_discrete_sequence=["teal"])
         st.plotly_chart(fig_year, use_container_width=True)
     with c3:
