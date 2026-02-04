@@ -15,8 +15,8 @@ def load_campaign_data():
         # Load the Campaign Tab
         # PASTE YOUR FULL GOOGLE SHEET URL BELOW
         df = conn.read(
-            spreadsheet="https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID_HERE/edit",
-            worksheet="Campaign_Tracker" 
+            spreadsheet="https://docs.google.com/spreadsheets/d/1Ank5NAk3qCuYKVK7F580aRU5I2DPDJ6lxLSa66PF33o/edit?gid=1749003768#gid=1749003768",
+            worksheet="Campaign" 
         )
         
         # --- ROBUST FILTERING ---
