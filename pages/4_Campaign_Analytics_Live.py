@@ -27,7 +27,7 @@ if not check_password():
     st.stop()
 
 # --- 2. DATA LOADING ---
-@st.cache_data(ttl=0) # Force fresh data
+@st.cache_data(ttl=0) 
 def load_campaign_data():
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
@@ -38,7 +38,7 @@ def load_campaign_data():
             worksheet="Campaign" 
         )
         
-        # Cleanup Headers: Convert to string and strip whitespace
+        # Cleanup Headers: Force string and strip
         df.columns = df.columns.astype(str).str.strip()
         
         return df
@@ -53,44 +53,42 @@ if raw_df.empty:
     st.stop()
 
 # --- 3. FILTERING ACTIVE CAMPAIGN ---
-# Create a copy to work with
 df = raw_df.copy()
 
-# Robust Filter for "Campaign_Active"
+# Robust Filter: Use .str.contains for safety
 if "Campaign_Active" in df.columns:
-    # Normalize: String -> Lowercase -> Strip -> Check "true"
-    # This handles "TRUE", "True", "true", "TRUE "
-    df = df[df["Campaign_Active"].astype(str).str.lower().str.strip() == "true"]
+    # This checks for "true" inside the cell, ignoring case (TRUE/True/true)
+    # na=False means empty cells are treated as False
+    df = df[df["Campaign_Active"].astype(str).str.contains("true", case=False, na=False)]
 else:
     st.error("❌ Column 'Campaign_Active' not found.")
     st.stop()
 
 if df.empty:
     st.warning("⚠️ Data loaded, but no rows matched 'Campaign_Active = TRUE'.")
+    st.write("Debug: First 5 rows of raw data:")
+    st.dataframe(raw_df.head())
     st.stop()
 
-# --- 4. ROBUST COUNTING LOGIC (The Fix) ---
+# --- 4. THE NUCLEAR COUNTING FUNCTION ---
 def count_true(column_name):
     """
-    Aggressively normalizes data to count TRUE values.
+    Counts rows where the column contains 'true', '1', or 'yes' (Case Insensitive).
+    This handles Booleans, Strings, and mixed formats.
     """
     if column_name not in df.columns: 
         return 0
     
-    # 1. Force convert entire column to String
-    # 2. Lowercase everything ("TRUE" -> "true")
-    # 3. Strip whitespace (" true " -> "true")
-    clean_col = df[column_name].astype(str).str.lower().str.strip()
-    
-    # 4. Count exact matches
-    return clean_col.isin(["true", "1", "yes", "t"]).sum()
+    # Convert to string and use regex search for truthy values
+    # Looks for "true" OR "1" OR "yes"
+    return df[column_name].astype(str).str.contains("true|1|yes", case=False, na=False).sum()
 
 def safe_calc(numerator, denominator):
     if denominator == 0: return 0
     return (numerator / denominator) * 100
 
 # --- 5. CALCULATE METRICS ---
-total_sent = len(df)
+total_sent = len(df) # Should be ~100
 opened = count_true("Opened Email")
 unsubscribed = count_true("Unsubscribed")
 lite_completed = count_true("Finished Lite PSA form")
@@ -99,18 +97,19 @@ photos_submitted = count_true("Submitted any photos")
 # Verified Mitigations Logic
 mitigation_cols = [c for c in df.columns if c.startswith("Mitigated_")]
 if mitigation_cols:
-    # Convert all mitigation columns to string, lower, strip
-    mit_df = df[mitigation_cols].astype(str).apply(lambda x: x.str.lower().str.strip())
-    # Check if "verified" exists in the row
-    mitigated_count = mit_df.apply(lambda x: x.str.contains("verified", na=False).any(), axis=1).sum()
+    # Check if any column contains "verified" (case insensitive)
+    mit_df = df[mitigation_cols].astype(str).apply(lambda x: x.str.contains("verified", case=False, na=False))
+    mitigated_count = mit_df.any(axis=1).sum()
 else:
     mitigated_count = 0
 
-# --- 6. DEBUG EXPANDER (Use this if it's still 0) ---
-# with st.expander("🛠 Debug Data Inspector"):
-#    st.write("First 5 rows of 'Opened Email' (cleaned):")
-#    st.write(df["Opened Email"].astype(str).str.lower().str.strip().head())
-#    st.write(f"Count calculated: {opened}")
+# --- 6. DEBUG EXPANDER ---
+# Check this to prove the data is loaded correctly
+with st.expander("🛠 Data Verification (Check this first)"):
+    st.write(f"**Total Active Rows:** {len(df)}")
+    st.write(f"**Calculated Opens:** {opened}")
+    st.write("Preview of Active Data:")
+    st.dataframe(df.head(5))
 
 # --- 7. DASHBOARD UI ---
 st.title("📢 Campaign Operations Center")
@@ -119,8 +118,8 @@ st.markdown("### Engagement & Conversion Tracking")
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Emails Sent", total_sent)
 c2.metric("Open Rate", f"{safe_calc(opened, total_sent):.0f}%", f"{opened} Opens")
-c3.metric("Lite Form Rate", f"{safe_calc(lite_completed, opened):.0f}%", f"{lite_completed} Responses", help="% of Openers who finished form")
-c4.metric("Photo Conversion", f"{safe_calc(photos_submitted, lite_completed):.0f}%", f"{photos_submitted} Verified", help="% of Forms that added photos")
+c3.metric("Lite Form Rate", f"{safe_calc(lite_completed, opened):.0f}%", f"{lite_completed} Responses", help="% of Openers")
+c4.metric("Photo Conversion", f"{safe_calc(photos_submitted, lite_completed):.0f}%", f"{photos_submitted} Verified", help="% of Forms with Photos")
 c5.metric("Value-Add Fixes", mitigated_count, delta="Verified", help="Homes that fixed a specific issue")
 
 st.markdown("---")
@@ -146,25 +145,13 @@ with col_details:
     
     st.markdown("#### Top Verified Fixes")
     if mitigation_cols:
-        # Re-calc for the chart using the clean logic
-        mit_counts = df[mitigation_cols].astype(str).apply(lambda x: x.str.lower().str.strip())
-        # We want to count how many rows have "verified" (partial match)
-        # But for bar chart, we just need value counts of "verified"
-        # We need to be careful: the R script might output "Verified" or "Verified Class A"
-        # Let's count any cell containing "verified"
+        # Count Verified across all columns using the same loose logic
+        mit_counts = df[mitigation_cols].astype(str).apply(lambda x: x.str.contains("verified", case=False, na=False).sum())
+        mit_counts = mit_counts[mit_counts > 0].sort_values(ascending=True)
         
-        # Create a series of just the "Verified" counts
-        verified_counts = {}
-        for col in mitigation_cols:
-            # Count rows where this specific column contains "verified"
-            count = mit_counts[col].str.contains("verified", na=False).sum()
-            if count > 0:
-                name = col.replace("Mitigated_", "").replace("_", " ")
-                verified_counts[name] = count
-        
-        if verified_counts:
-            s_counts = pd.Series(verified_counts).sort_values()
-            fig_bar = px.bar(x=s_counts.values, y=s_counts.index, orientation='h', title="Verified Fixes")
+        if not mit_counts.empty:
+            mit_counts.index = [x.replace("Mitigated_", "").replace("_", " ") for x in mit_counts.index]
+            fig_bar = px.bar(x=mit_counts.values, y=mit_counts.index, orientation='h', title="Verified Fixes")
             fig_bar.update_layout(showlegend=False, xaxis_title="Count", yaxis_title="Feature")
             st.plotly_chart(fig_bar, use_container_width=True)
         else:
@@ -179,8 +166,11 @@ with t1:
     lite_cols = [c for c in df.columns if c.startswith("Lite_")]
     if lite_cols:
         melted = df[lite_cols].melt(var_name="Question", value_name="Response")
-        # Filter blanks (aggressive strip)
-        melted = melted[melted["Response"].astype(str).str.strip() != ""]
+        # Filter Blanks: Check if string length > 0 after strip
+        melted = melted[melted["Response"].astype(str).str.strip().str.len() > 0]
+        # Filter out "nan" strings from empty cells
+        melted = melted[~melted["Response"].astype(str).str.lower().isin(["nan", "none"])]
+        
         if not melted.empty:
             melted["Question"] = melted["Question"].str.replace("Lite_", "")
             fig = px.histogram(melted, x="Question", color="Response", barmode="group",
@@ -193,14 +183,11 @@ with t2:
     photo_cols = [c for c in df.columns if c.startswith("Photo_")]
     if photo_cols:
         melted = df[photo_cols].melt(var_name="Feature", value_name="Status")
-        melted = melted[melted["Status"].astype(str).str.strip() != ""]
+        melted = melted[melted["Status"].astype(str).str.strip().str.len() > 0]
+        melted = melted[~melted["Status"].astype(str).str.lower().isin(["nan", "none"])]
+        
         if not melted.empty:
             melted["Feature"] = melted["Feature"].str.replace("Photo_", "")
-            # Clean status for coloring map
-            melted["Status_Clean"] = melted["Status"].astype(str).str.lower().str.strip()
-            
-            # Map raw statuses to simple groups for color
-            # Just relying on Plotly defaults if map fails, but trying to catch key phrases
             fig = px.histogram(melted, y="Feature", color="Status", barmode="stack", orientation="h")
             st.plotly_chart(fig, use_container_width=True)
         else:
