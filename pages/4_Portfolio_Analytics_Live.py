@@ -45,26 +45,24 @@ if not check_password():
     st.stop()  # Stop execution if password not correct
 
 # --- 2. DATA LOADING (GOOGLE SHEETS) ---
-@st.cache_data(ttl=60) # Refreshes cache every 60 seconds
+@st.cache_data(ttl=60)
 def load_data():
     try:
-        # Create the connection object
         conn = st.connection("gsheets", type=GSheetsConnection)
         
-        # Read the specific Worksheet
+        # REMOVE 'usecols'. This lets it read whatever is there automatically.
         df = conn.read(
-            spreadsheet="https://docs.google.com/spreadsheets/d/1Ank5NAk3qCuYKVK7F580aRU5I2DPDJ6lxLSa66PF33o/edit?gid=696390753#gid=696390753",
-            usecols=list(range(30)) # Safely grab the first ~30 columns to avoid empty trailing cols
+            spreadsheet="https://docs.google.com/spreadsheets/d/1Ank5NAk3qCuYKVK7F580aRU5I2DPDJ6lxLSa66PF33o/edit?gid=696390753#gid=696390753"
         )
         
-        # Basic cleanup: Drop rows where Policy_ID is missing (empty rows)
+        # Cleanup: Drop rows that are completely empty or missing Policy_ID
         df = df.dropna(subset=["Policy_ID"])
         return df
         
     except Exception as e:
         st.error(f"❌ Could not connect to Google Sheet. Error: {e}")
         return pd.DataFrame()
-
+        
 df = load_data()
 
 if df.empty:
