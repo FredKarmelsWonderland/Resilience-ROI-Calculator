@@ -56,18 +56,29 @@ if df.empty:
     st.stop()
 
 # --- 2. METRIC CALCULATIONS ---
-def count_true(column_name):
-    if column_name not in df.columns: return 0
-    # Robust check for "TRUE" strings
-    return df[df[column_name].astype(str).str.strip().str.upper() == "TRUE"].shape[0]
 
-# FIX 3: CRASH PROOF MATH
+def count_true(column_name):
+    if column_name not in df.columns: 
+        return 0
+    
+    # Get the column series
+    col = df[column_name]
+    
+    # 1. Try counting actual Python Booleans (True)
+    if col.dtype == 'bool':
+        return col.sum()
+        
+    # 2. If it's Object/String/Int, do a robust string check
+    # Convert to string, strip spaces, upper case, and check for "TRUE" or "1"
+    return col.astype(str).str.strip().str.upper().isin(["TRUE", "1", "YES"]).sum()
+
+# (Keep your safe_calc function as is)
 def safe_calc(numerator, denominator):
     if denominator == 0:
         return 0
     return (numerator / denominator) * 100
 
-total_sent = len(df) # This should now be 100
+total_sent = len(df)
 opened = count_true("Opened Email")
 unsubscribed = count_true("Unsubscribed")
 lite_completed = count_true("Finished Lite PSA form")
