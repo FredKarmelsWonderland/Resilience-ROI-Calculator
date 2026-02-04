@@ -38,7 +38,7 @@ def load_data():
         # Read the 'Scored' tab specifically
         # PASTE YOUR FULL GOOGLE SHEET URL BELOW inside the quotes
         df = conn.read(
-            spreadsheet="https://docs.google.com/spreadsheets/d/1U31Bv8mgrtYOyD1gwJv9jFzsAmPrxDi8lTbjUk3aRxU/edit", 
+            spreadsheet="https://docs.google.com/spreadsheets/d/1Ank5NAk3qCuYKVK7F580aRU5I2DPDJ6lxLSa66PF33o/edit?gid=696390753#gid=696390753", 
             worksheet="Scored"
         )
         
