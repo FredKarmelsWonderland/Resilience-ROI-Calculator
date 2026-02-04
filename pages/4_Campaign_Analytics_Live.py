@@ -40,22 +40,44 @@ if df.empty:
     st.stop()
 
 # --- 2. METRIC CALCULATIONS ---
-# Helper to safely count "TRUE" values even if they load as strings
+# Helper to safely count "TRUE" values
 def count_true(column_name):
     if column_name not in df.columns: return 0
+    # Clean string conversion to handle boolean/text differences
     return df[df[column_name].astype(str).str.upper() == "TRUE"].shape[0]
 
-total_sent = len(df) # Since we already filtered for Campaign_Active, this is correct (100)
+# Helper to avoid "Division by Zero" crashes
+def safe_calc(numerator, denominator):
+    if denominator == 0:
+        return 0
+    return (numerator / denominator) * 100
+
+total_sent = len(df)
 opened = count_true("Opened Email")
 unsubscribed = count_true("Unsubscribed")
 lite_completed = count_true("Finished Lite PSA form")
 photos_submitted = count_true("Submitted any photos")
 
-# "Verified Mitigated" Logic:
-# Count row if AT LEAST ONE "Mitigated_" column == "Verified"
+# Count Verified Mitigations
 mitigation_cols = [c for c in df.columns if c.startswith("Mitigated_")]
-mitigated_count = df[mitigation_cols].apply(lambda x: x.isin(["Verified"]).any(), axis=1).sum()
+if mitigation_cols:
+    mitigated_count = df[mitigation_cols].apply(lambda x: x.isin(["Verified"]).any(), axis=1).sum()
+else:
+    mitigated_count = 0
 
+# --- 3. HEADER METRICS ---
+st.title("📢 Campaign Operations Center")
+st.markdown("### Engagement & Conversion Tracking")
+
+c1, c2, c3, c4, c5 = st.columns(5)
+c1.metric("Emails Sent", total_sent)
+c2.metric("Open Rate", f"{safe_calc(opened, total_sent):.0f}%", f"{opened} Opens")
+
+# SAFE CALCULATIONS APPLIED HERE ↓
+c3.metric("Lite Form Rate", f"{safe_calc(lite_completed, opened):.0f}%", f"{lite_completed} Responses", help="% of Openers who finished form")
+c4.metric("Photo Conversion", f"{safe_calc(photos_submitted, lite_completed):.0f}%", f"{photos_submitted} Verified", help="% of Forms that added photos")
+
+c5.metric("Value-Add Fixes", mitigated_count, delta="Verified", help="Homes that fixed a specific issue")
 # --- 3. HEADER METRICS ---
 st.title("📢 Campaign Operations Center")
 st.markdown("### Engagement & Conversion Tracking")
