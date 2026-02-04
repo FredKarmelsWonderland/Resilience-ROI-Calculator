@@ -53,6 +53,7 @@ def load_data():
         # REMOVE 'usecols'. This lets it read whatever is there automatically.
         df = conn.read(
             spreadsheet="https://docs.google.com/spreadsheets/d/1Ank5NAk3qCuYKVK7F580aRU5I2DPDJ6lxLSa66PF33o/edit?gid=696390753#gid=696390753"
+            worksheet="Scored"  # <--- THIS IS THE KEY FIX
         )
         
         # Cleanup: Drop rows that are completely empty or missing Policy_ID
