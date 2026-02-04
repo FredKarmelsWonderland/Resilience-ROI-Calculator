@@ -91,21 +91,33 @@ col4.metric("Avg Resilience Score", f"{avg_score:.1f}/100", delta="Target: >75",
 st.markdown("---")
 
 # --- 4. VISUAL ANALYTICS ---
-t1, t2 = st.tabs(["📉 Profitability Distribution", "🔥 Risk Factors Analysis"])
+twith t1:
+    # 1. Histogram (Full Width)
+    st.subheader("Distribution of Net Profit/Loss")
+    fig_hist = px.histogram(
+        df, 
+        x="carrier_net", 
+        nbins=50, 
+        color_discrete_sequence=["#636EFA"]
+    )
+    fig_hist.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="Breakeven")
+    fig_hist.update_layout(xaxis_title="Net Profit ($)", yaxis_title="Count of Homes")
+    st.plotly_chart(fig_hist, use_container_width=True)
 
-with t1:
-    c1, c2 = st.columns([2, 1])
-    with c1:
-        fig_hist = px.histogram(df, x="carrier_net", nbins=50, title="Distribution of Net Profit/Loss per Home", color_discrete_sequence=["#636EFA"])
-        fig_hist.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="Breakeven")
-        st.plotly_chart(fig_hist, use_container_width=True)
-    with c2:
-        fig_scat = px.scatter(
-            df, x="scaled_QA_wildfire_score", y="carrier_net", color="Wildfire_Risk_Rating_PL",
-            title="Resilience Score vs. Profitability", hover_data=["Policy_ID", "city"],
-            color_discrete_map={"Low": "green", "Moderate": "yellow", "High": "orange", "Very High": "red"}
-        )
-        st.plotly_chart(fig_scat, use_container_width=True)
+    st.markdown("---") # Visual separator
+
+    # 2. Scatter Plot (Full Width)
+    st.subheader("Correlation: Resilience vs. Profitability")
+    fig_scat = px.scatter(
+        df, 
+        x="scaled_QA_wildfire_score", 
+        y="carrier_net", 
+        color="Wildfire_Risk_Rating_PL",
+        hover_data=["Policy_ID", "city"],
+        color_discrete_map={"Low": "green", "Moderate": "yellow", "High": "orange", "Very High": "red"}
+    )
+    fig_scat.update_layout(xaxis_title="Resilience Score (0-100)", yaxis_title="Net Profit ($)")
+    st.plotly_chart(fig_scat, use_container_width=True)
 
 with t2:
     c1, c2, c3 = st.columns(3)
