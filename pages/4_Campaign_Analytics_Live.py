@@ -8,7 +8,9 @@ st.set_page_config(page_title="Campaign Operations", layout="wide")
 
 # --- 1. SECURITY BLOCK ---
 def check_password():
-    """Returns `True` if the user had the correct password."""
+    if "password_correct" not in st.session_state:
+        st.session_state["password_correct"] = False
+    
     def password_entered():
         if st.session_state["password"] == "Faura2026": 
             st.session_state["password_correct"] = True
@@ -16,15 +18,10 @@ def check_password():
         else:
             st.session_state["password_correct"] = False
 
-    if "password_correct" not in st.session_state:
+    if not st.session_state["password_correct"]:
         st.text_input("🔒 Please enter the Faura access code:", type="password", on_change=password_entered, key="password")
         return False
-    elif not st.session_state["password_correct"]:
-        st.text_input("🔒 Please enter the Faura access code:", type="password", on_change=password_entered, key="password")
-        st.error("😕 Password incorrect")
-        return False
-    else:
-        return True
+    return True
 
 if not check_password():
     st.stop()
@@ -41,67 +38,81 @@ def load_campaign_data():
             worksheet="Campaign" 
         )
         
-        # Cleanup Headers
+        # Cleanup Headers: Convert to string and strip whitespace
         df.columns = df.columns.astype(str).str.strip()
         
-        # Filter for Active Campaign
-        target_col = "Campaign_Active"
-        if target_col in df.columns:
-            # Robust Filter: Convert to string, upper case, check for TRUE
-            df = df[df[target_col].astype(str).str.strip().str.upper() == "TRUE"]
-            
         return df
     except Exception as e:
         st.error(f"❌ Connection Error: {e}")
         return pd.DataFrame()
 
-df = load_campaign_data()
+raw_df = load_campaign_data()
 
-if df.empty:
-    st.warning("⚠️ No active campaign data found. Check 'Campaign_Active' column.")
+if raw_df.empty:
+    st.warning("⚠️ No data found.")
     st.stop()
 
-# --- 3. METRIC CALCULATIONS (The Fix) ---
+# --- 3. FILTERING ACTIVE CAMPAIGN ---
+# Create a copy to work with
+df = raw_df.copy()
 
+# Robust Filter for "Campaign_Active"
+if "Campaign_Active" in df.columns:
+    # Normalize: String -> Lowercase -> Strip -> Check "true"
+    # This handles "TRUE", "True", "true", "TRUE "
+    df = df[df["Campaign_Active"].astype(str).str.lower().str.strip() == "true"]
+else:
+    st.error("❌ Column 'Campaign_Active' not found.")
+    st.stop()
+
+if df.empty:
+    st.warning("⚠️ Data loaded, but no rows matched 'Campaign_Active = TRUE'.")
+    st.stop()
+
+# --- 4. ROBUST COUNTING LOGIC (The Fix) ---
 def count_true(column_name):
     """
-    Counts TRUE values robustly, handling mixed types (Booleans, Strings, Ints).
+    Aggressively normalizes data to count TRUE values.
     """
     if column_name not in df.columns: 
         return 0
     
-    # 1. Force convert everything to String
-    # 2. Strip whitespace
-    # 3. Uppercase
-    # 4. Check against list of "Truth" values
-    # This catches: True, "True", "TRUE", " true ", "1", 1
-    clean_series = df[column_name].astype(str).str.strip().str.upper()
-    return clean_series.isin(["TRUE", "1", "YES", "T"]).sum()
+    # 1. Force convert entire column to String
+    # 2. Lowercase everything ("TRUE" -> "true")
+    # 3. Strip whitespace (" true " -> "true")
+    clean_col = df[column_name].astype(str).str.lower().str.strip()
+    
+    # 4. Count exact matches
+    return clean_col.isin(["true", "1", "yes", "t"]).sum()
 
 def safe_calc(numerator, denominator):
     if denominator == 0: return 0
     return (numerator / denominator) * 100
 
+# --- 5. CALCULATE METRICS ---
 total_sent = len(df)
 opened = count_true("Opened Email")
 unsubscribed = count_true("Unsubscribed")
 lite_completed = count_true("Finished Lite PSA form")
 photos_submitted = count_true("Submitted any photos")
 
-# Verified Mitigations
+# Verified Mitigations Logic
 mitigation_cols = [c for c in df.columns if c.startswith("Mitigated_")]
 if mitigation_cols:
-    mitigated_count = df[mitigation_cols].apply(lambda x: x.isin(["Verified"]).any(), axis=1).sum()
+    # Convert all mitigation columns to string, lower, strip
+    mit_df = df[mitigation_cols].astype(str).apply(lambda x: x.str.lower().str.strip())
+    # Check if "verified" exists in the row
+    mitigated_count = mit_df.apply(lambda x: x.str.contains("verified", na=False).any(), axis=1).sum()
 else:
     mitigated_count = 0
 
-# --- 4. DEBUG SECTION (Temporary) ---
-# Un-comment this if it's STILL 0 to see exactly what the data looks like
-# with st.expander("🛠 Debug: Inspect 'Opened Email' Column"):
-#    st.write("Unique values found in 'Opened Email':")
-#    st.write(df["Opened Email"].value_counts())
+# --- 6. DEBUG EXPANDER (Use this if it's still 0) ---
+# with st.expander("🛠 Debug Data Inspector"):
+#    st.write("First 5 rows of 'Opened Email' (cleaned):")
+#    st.write(df["Opened Email"].astype(str).str.lower().str.strip().head())
+#    st.write(f"Count calculated: {opened}")
 
-# --- 5. DASHBOARD LAYOUT ---
+# --- 7. DASHBOARD UI ---
 st.title("📢 Campaign Operations Center")
 st.markdown("### Engagement & Conversion Tracking")
 
@@ -114,7 +125,7 @@ c5.metric("Value-Add Fixes", mitigated_count, delta="Verified", help="Homes that
 
 st.markdown("---")
 
-# --- 6. FUNNEL & DETAILS ---
+# --- 8. FUNNEL & DETAILS ---
 col_funnel, col_details = st.columns([2, 1])
 
 with col_funnel:
@@ -135,18 +146,31 @@ with col_details:
     
     st.markdown("#### Top Verified Fixes")
     if mitigation_cols:
-        # Count 'Verified' specifically
-        mitigation_counts = df[mitigation_cols].apply(pd.Series.value_counts).T
-        if "Verified" in mitigation_counts.columns:
-            counts = mitigation_counts["Verified"].sort_values(ascending=True)
-            counts.index = [x.replace("Mitigated_", "") for x in counts.index]
-            fig_bar = px.bar(counts, orientation='h', title="Verified Fixes")
+        # Re-calc for the chart using the clean logic
+        mit_counts = df[mitigation_cols].astype(str).apply(lambda x: x.str.lower().str.strip())
+        # We want to count how many rows have "verified" (partial match)
+        # But for bar chart, we just need value counts of "verified"
+        # We need to be careful: the R script might output "Verified" or "Verified Class A"
+        # Let's count any cell containing "verified"
+        
+        # Create a series of just the "Verified" counts
+        verified_counts = {}
+        for col in mitigation_cols:
+            # Count rows where this specific column contains "verified"
+            count = mit_counts[col].str.contains("verified", na=False).sum()
+            if count > 0:
+                name = col.replace("Mitigated_", "").replace("_", " ")
+                verified_counts[name] = count
+        
+        if verified_counts:
+            s_counts = pd.Series(verified_counts).sort_values()
+            fig_bar = px.bar(x=s_counts.values, y=s_counts.index, orientation='h', title="Verified Fixes")
             fig_bar.update_layout(showlegend=False, xaxis_title="Count", yaxis_title="Feature")
             st.plotly_chart(fig_bar, use_container_width=True)
         else:
             st.info("No verified mitigations found.")
 
-# --- 7. TABS ---
+# --- 9. TABS ---
 st.markdown("---")
 st.subheader("🔍 Response Analysis")
 t1, t2 = st.tabs(["📝 Lite Form Answers", "📸 Photo Verification"])
@@ -155,6 +179,7 @@ with t1:
     lite_cols = [c for c in df.columns if c.startswith("Lite_")]
     if lite_cols:
         melted = df[lite_cols].melt(var_name="Question", value_name="Response")
+        # Filter blanks (aggressive strip)
         melted = melted[melted["Response"].astype(str).str.strip() != ""]
         if not melted.empty:
             melted["Question"] = melted["Question"].str.replace("Lite_", "")
@@ -171,8 +196,12 @@ with t2:
         melted = melted[melted["Status"].astype(str).str.strip() != ""]
         if not melted.empty:
             melted["Feature"] = melted["Feature"].str.replace("Photo_", "")
-            fig = px.histogram(melted, y="Feature", color="Status", barmode="stack", orientation="h",
-                               color_discrete_map={"Verified Class A": "green", "Verified Mesh": "green", "Non-Compliant": "red", "Unclear": "orange"})
+            # Clean status for coloring map
+            melted["Status_Clean"] = melted["Status"].astype(str).str.lower().str.strip()
+            
+            # Map raw statuses to simple groups for color
+            # Just relying on Plotly defaults if map fails, but trying to catch key phrases
+            fig = px.histogram(melted, y="Feature", color="Status", barmode="stack", orientation="h")
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No Photo data available yet.")
