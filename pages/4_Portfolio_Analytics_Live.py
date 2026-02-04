@@ -36,6 +36,7 @@ def load_data():
         conn = st.connection("gsheets", type=GSheetsConnection)
         
         # Read the 'Scored' tab specifically
+        # PASTE YOUR FULL GOOGLE SHEET URL BELOW
         df = conn.read(
             spreadsheet="https://docs.google.com/spreadsheets/d/1Ank5NAk3qCuYKVK7F580aRU5I2DPDJ6lxLSa66PF33o/edit?gid=696390753#gid=696390753", 
             worksheet="Scored"
@@ -90,30 +91,51 @@ col4.metric("Avg Resilience Score", f"{avg_score:.1f}/100", delta="Target: >75",
 st.markdown("---")
 
 # --- 4. VISUAL ANALYTICS ---
-t1, t2 = st.tabs(["📉 Profitability Distribution", "🔥 Risk Factors Analysis"])
+t1, t2 = st.tabs(["📉 Profitability & Risk Profile", "🏠 Property Attributes"])
 
 with t1:
-    # 1. Histogram (Full Width)
-    st.subheader("Distribution of Net Profit/Loss")
-    fig_hist = px.histogram(df, x="carrier_net", nbins=50, color_discrete_sequence=["#636EFA"])
-    fig_hist.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="Breakeven")
-    fig_hist.update_layout(xaxis_title="Net Profit ($)", yaxis_title="Count of Homes")
-    st.plotly_chart(fig_hist, use_container_width=True)
+    st.subheader("Financial Impact Analysis")
+    c1, c2 = st.columns(2)
+    with c1:
+        # 1. Net Profit Histogram
+        fig_net = px.histogram(df, x="carrier_net", nbins=50, title="Net Profit/Loss Distribution", color_discrete_sequence=["#636EFA"])
+        fig_net.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="Breakeven")
+        fig_net.update_layout(xaxis_title="Net Profit ($)", yaxis_title="Count")
+        st.plotly_chart(fig_net, use_container_width=True)
 
-    st.markdown("---") 
+    with c2:
+        # 2. Gross Expected Loss Histogram
+        fig_gross = px.histogram(df, x="gross_expected_loss", nbins=50, title="Gross Expected Loss Distribution", color_discrete_sequence=["#EF553B"])
+        fig_gross.update_layout(xaxis_title="Gross Loss ($)", yaxis_title="Count")
+        st.plotly_chart(fig_gross, use_container_width=True)
 
-    # 2. Scatter Plot (Full Width)
-    st.subheader("Correlation: Resilience vs. Profitability")
-    fig_scat = px.scatter(
-        df, 
-        x="scaled_QA_wildfire_score", 
-        y="carrier_net", 
-        color="Wildfire_Risk_Rating_PL",
-        hover_data=["Policy_ID", "city"],
-        color_discrete_map={"Low": "green", "Moderate": "yellow", "High": "orange", "Very High": "red"}
-    )
-    fig_scat.update_layout(xaxis_title="Resilience Score (0-100)", yaxis_title="Net Profit ($)")
-    st.plotly_chart(fig_scat, use_container_width=True)
+    st.markdown("---")
+    st.subheader("Risk Metrics Distribution")
+
+    c3, c4 = st.columns(2)
+    with c3:
+        # 3. Scaled Resilience Score
+        fig_score = px.histogram(df, x="scaled_QA_wildfire_score", nbins=20, title="Scaled Resilience Score (0-100)", color_discrete_sequence=["#00CC96"])
+        fig_score.add_vline(x=75, line_dash="dot", line_color="black", annotation_text="Target")
+        fig_score.update_layout(xaxis_title="Score", yaxis_title="Count")
+        st.plotly_chart(fig_score, use_container_width=True)
+
+    with c4:
+        # 4. Wildfire Grade (A-F)
+        # We manually order these so they appear logically: A -> F
+        category_order = {"Wildfire_Risk_Grade_PL": ["A", "B", "C", "D", "F"]}
+        fig_grade = px.histogram(
+            df, 
+            x="Wildfire_Risk_Grade_PL", 
+            title="Wildfire Risk Grade", 
+            color="Wildfire_Risk_Grade_PL",
+            category_orders=category_order,
+            color_discrete_map={
+                "A": "green", "B": "lightgreen", "C": "yellow", "D": "orange", "F": "red"
+            }
+        )
+        fig_grade.update_layout(xaxis_title="Grade", yaxis_title="Count")
+        st.plotly_chart(fig_grade, use_container_width=True)
 
 with t2:
     c1, c2, c3 = st.columns(3)
