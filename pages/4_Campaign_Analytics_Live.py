@@ -13,11 +13,21 @@ def load_campaign_data():
         conn = st.connection("gsheets", type=GSheetsConnection)
         
         # Load the Campaign Tab
-        # REPLACE WITH YOUR GOOGLE SHEET URL
+        # PASTE YOUR FULL GOOGLE SHEET URL BELOW
         df = conn.read(
-            spreadsheet="https://docs.google.com/spreadsheets/d/1Ank5NAk3qCuYKVK7F580aRU5I2DPDJ6lxLSa66PF33o/edit?gid=1749003768#gid=1749003768",
-            worksheet="Campaign" 
+            spreadsheet="https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID_HERE/edit",
+            worksheet="Campaign_Tracker" 
         )
+        
+        # --- ROBUST FILTERING ---
+        # 1. Filter to keep only the Active Pilot rows
+        if "Campaign_Active" in df.columns:
+            # Convert to string and uppercase to handle "TRUE", "True", True, or 1 safely
+            df = df[df["Campaign_Active"].astype(str).str.upper() == "TRUE"]
+        else:
+            # Fallback: drop if "Opened Email" is empty
+            df = df[df["Opened Email"].astype(str) != ""]
+            
         return df
     except Exception as e:
         st.error(f"❌ Connection Error: {e}")
@@ -26,20 +36,24 @@ def load_campaign_data():
 df = load_campaign_data()
 
 if df.empty:
-    st.warning("⚠️ No campaign data found. Check your 'Campaign_Tracker' tab.")
+    st.warning("⚠️ No active campaign data found. Check your 'Campaign_Active' column in Sheets.")
     st.stop()
 
 # --- 2. METRIC CALCULATIONS ---
-total_sent = len(df)
-opened = df[df["Opened Email"] == True].shape[0]
-unsubscribed = df[df["Unsubscribed"] == True].shape[0]
-lite_completed = df[df["Finished Lite PSA form"] == True].shape[0]
-photos_submitted = df[df["Submitted any photos"] == True].shape[0]
+# Helper to safely count "TRUE" values even if they load as strings
+def count_true(column_name):
+    if column_name not in df.columns: return 0
+    return df[df[column_name].astype(str).str.upper() == "TRUE"].shape[0]
 
-# "Verified Mitigated" is tricky. Let's count anyone who has at least one "Verified" column in the mitigation section
-# We grab columns that start with "Mitigated_"
+total_sent = len(df) # Since we already filtered for Campaign_Active, this is correct (100)
+opened = count_true("Opened Email")
+unsubscribed = count_true("Unsubscribed")
+lite_completed = count_true("Finished Lite PSA form")
+photos_submitted = count_true("Submitted any photos")
+
+# "Verified Mitigated" Logic:
+# Count row if AT LEAST ONE "Mitigated_" column == "Verified"
 mitigation_cols = [c for c in df.columns if c.startswith("Mitigated_")]
-# Check if any of those columns equal "Verified" for each row
 mitigated_count = df[mitigation_cols].apply(lambda x: x.isin(["Verified"]).any(), axis=1).sum()
 
 # --- 3. HEADER METRICS ---
@@ -48,10 +62,10 @@ st.markdown("### Engagement & Conversion Tracking")
 
 c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Emails Sent", total_sent)
-c2.metric("Open Rate", f"{(opened/total_sent)*100:.1f}%", f"{opened} Opens")
-c3.metric("Lite Form Rate", f"{(lite_completed/opened)*100:.1f}%", f"{lite_completed} Responses", help="% of Openers who finished form")
-c4.metric("Photo Conversion", f"{(photos_submitted/lite_completed)*100:.1f}%", f"{photos_submitted} Verified", help="% of Forms that added photos")
-c5.metric("Active Mitigations", mitigated_count, delta="Value Add", help="Homes that fixed a specific issue")
+c2.metric("Open Rate", f"{(opened/total_sent)*100:.0f}%", f"{opened} Opens")
+c3.metric("Lite Form Rate", f"{(lite_completed/opened)*100:.0f}%", f"{lite_completed} Responses", help="% of Openers who finished form")
+c4.metric("Photo Conversion", f"{(photos_submitted/lite_completed)*100:.0f}%", f"{photos_submitted} Verified", help="% of Forms that added photos")
+c5.metric("Value-Add Fixes", mitigated_count, delta="Verified", help="Homes that fixed a specific issue")
 
 st.markdown("---")
 
@@ -61,8 +75,7 @@ col_funnel, col_details = st.columns([2, 1])
 with col_funnel:
     st.subheader("📉 Campaign Conversion Funnel")
     
-    # Data for Funnel
-    stages = ["Emails Sent", "Opened Email", "Completed Lite Form", "Submitted Photos", "Verified Mitigation"]
+    stages = ["Emails Sent", "Opened Email", "Completed Lite Form", "Submitted Photos", "Verified Value-Add"]
     values = [total_sent, opened, lite_completed, photos_submitted, mitigated_count]
     
     fig_funnel = go.Figure(go.Funnel(
@@ -78,16 +91,20 @@ with col_details:
     st.subheader("❌ Negative Feedback")
     st.metric("Unsubscribes", unsubscribed, f"{(unsubscribed/total_sent)*100:.1f}% of total")
     
-    st.markdown("#### Top Mitigation Actions")
+    st.markdown("#### Top Verified Fixes")
     # Count verified mitigations per category
-    mitigation_counts = df[mitigation_cols].apply(lambda x: x.value_counts()).loc["Verified"].sort_values(ascending=True)
-    
-    # Clean up names for the chart (remove "Mitigated_")
-    mitigation_counts.index = [x.replace("Mitigated_", "") for x in mitigation_counts.index]
-    
-    fig_bar = px.bar(mitigation_counts, orientation='h', title="Verified Fixes by Category")
-    fig_bar.update_layout(showlegend=False, xaxis_title="Count of Homes", yaxis_title="Feature")
-    st.plotly_chart(fig_bar, use_container_width=True)
+    # We explicitly exclude empty strings to only count "Verified"
+    mitigation_counts = df[mitigation_cols].apply(pd.Series.value_counts).T
+    if "Verified" in mitigation_counts.columns:
+        mitigation_counts = mitigation_counts["Verified"].sort_values(ascending=True)
+        # Clean up names
+        mitigation_counts.index = [x.replace("Mitigated_", "") for x in mitigation_counts.index]
+        
+        fig_bar = px.bar(mitigation_counts, orientation='h', title="Verified Fixes by Category")
+        fig_bar.update_layout(showlegend=False, xaxis_title="Count of Homes", yaxis_title="Feature")
+        st.plotly_chart(fig_bar, use_container_width=True)
+    else:
+        st.info("No verified mitigations yet.")
 
 # --- 5. DETAILED BREAKDOWNS (Tabs) ---
 st.markdown("---")
@@ -98,52 +115,49 @@ t1, t2 = st.tabs(["📝 Lite Form Answers (Self-Reported)", "📸 Photo Verifica
 with t1:
     st.info("What homeowners are saying about their own properties (Self-Reported Data).")
     
-    # Get "Lite_" columns
     lite_cols = [c for c in df.columns if c.startswith("Lite_")]
-    
-    # Reshape for plotting: We want a stacked bar chart of Yes/No/Unsure for each Question
-    # This is a bit advanced pandas manipulation to make it plot-ready
-    melted_lite = df[lite_cols].melt(var_name="Question", value_name="Response")
-    # Filter out empty responses
-    melted_lite = melted_lite[melted_lite["Response"] != ""]
-    
-    # Clean up Question names
-    melted_lite["Question"] = melted_lite["Question"].str.replace("Lite_", "")
-    
-    fig_lite = px.histogram(
-        melted_lite, 
-        x="Question", 
-        color="Response", 
-        barmode="group",
-        title="Distribution of Self-Reported Answers",
-        color_discrete_map={"Yes": "#00CC96", "No": "#EF553B", "Unsure": "#FFA15A", "No Gutters": "gray", "No Trees": "gray"}
-    )
-    st.plotly_chart(fig_lite, use_container_width=True)
+    if lite_cols:
+        melted_lite = df[lite_cols].melt(var_name="Question", value_name="Response")
+        # Filter out empty responses and blanks
+        melted_lite = melted_lite[melted_lite["Response"].astype(str) != ""]
+        melted_lite["Question"] = melted_lite["Question"].str.replace("Lite_", "")
+        
+        fig_lite = px.histogram(
+            melted_lite, 
+            x="Question", 
+            color="Response", 
+            barmode="group",
+            title="Distribution of Self-Reported Answers",
+            color_discrete_map={"Yes": "#00CC96", "No": "#EF553B", "Unsure": "#FFA15A", "No Gutters": "gray", "No Trees": "gray"}
+        )
+        st.plotly_chart(fig_lite, use_container_width=True)
 
 with t2:
     st.info("Results from the Human/AI Review of submitted photos.")
     
     photo_cols = [c for c in df.columns if c.startswith("Photo_")]
-    melted_photo = df[photo_cols].melt(var_name="Feature", value_name="Status")
-    melted_photo = melted_photo[melted_photo["Status"] != ""]
-    melted_photo["Feature"] = melted_photo["Feature"].str.replace("Photo_", "")
-    
-    fig_photo = px.histogram(
-        melted_photo, 
-        y="Feature", 
-        color="Status", 
-        barmode="stack",
-        orientation="h",
-        title="Verification Outcomes",
-        color_discrete_map={
-            "Verified Class A": "green", "Verified Mesh": "green", "Verified Metal": "green", "Verified Enclosed": "green", 
-            "Verified Dual Pane": "green", "Verified Clearance": "green", "Verified Clear": "green", "Verified Gate": "green", "Verified Trimmed": "green", "Verified Distant": "green",
-            "Non-Compliant": "red", "Combustible Found": "red", "Debris Found": "red", "Wood to Wall": "red", "Overhang": "red", "Too Close": "red", "Exposed Rafters": "red", "Single Pane": "red",
-            "Unclear": "orange"
-        }
-    )
-    st.plotly_chart(fig_photo, use_container_width=True)
+    if photo_cols:
+        melted_photo = df[photo_cols].melt(var_name="Feature", value_name="Status")
+        # Filter out empty strings
+        melted_photo = melted_photo[melted_photo["Status"].astype(str) != ""]
+        melted_photo["Feature"] = melted_photo["Feature"].str.replace("Photo_", "")
+        
+        fig_photo = px.histogram(
+            melted_photo, 
+            y="Feature", 
+            color="Status", 
+            barmode="stack",
+            orientation="h",
+            title="Verification Outcomes",
+            color_discrete_map={
+                "Verified Class A": "green", "Verified Mesh": "green", "Verified Metal": "green", "Verified Enclosed": "green", 
+                "Verified Dual Pane": "green", "Verified Clearance": "green", "Verified Clear": "green", "Verified Gate": "green", "Verified Trimmed": "green", "Verified Distant": "green",
+                "Non-Compliant": "red", "Combustible Found": "red", "Debris Found": "red", "Wood to Wall": "red", "Overhang": "red", "Too Close": "red", "Exposed Rafters": "red", "Single Pane": "red",
+                "Unclear": "orange"
+            }
+        )
+        st.plotly_chart(fig_photo, use_container_width=True)
 
 # --- 6. RAW DATA VIEW ---
-with st.expander("📂 View Raw Campaign Data"):
+with st.expander("📂 View Raw Campaign Data (Active Only)"):
     st.dataframe(df)
