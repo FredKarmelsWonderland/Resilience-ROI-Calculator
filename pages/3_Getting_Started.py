@@ -113,9 +113,18 @@ c1.metric("Total Homes", f"{total_homes:,}")
 c2.metric("Total TIV", f"${total_tiv/1e6:,.1f}M")
 c3.metric("Total Premium", f"${total_premium/1e6:,.2f}M")
 c4.metric("Gross Exp. Loss", f"${total_gel/1e6:,.2f}M")
-c5.metric("Current Net", f"${net_portfolio/1e6:,.2f}M", help="Net Profit (Premium - Gross Loss)")
-c6.metric("Avg Resilience Score", f"{avg_resilience:.2f}/100")
 
+# LOGIC FOR COLORING (Green if >0, Red if <0, Off if 0)
+net_color = "normal" if net_portfolio != 0 else "off"
+c5.metric(
+    "Expected Net", 
+    f"${net_portfolio/1e6:,.2f}M", 
+    delta=f"${net_portfolio/1e6:,.2f}M", 
+    delta_color=net_color,
+    help="Net Profit (Premium - Gross Loss)"
+)
+
+c6.metric("Avg Resilience Score", f"{avg_resilience:.0f}/100")
 # B. Full Portfolio Table
 with st.expander("📋 View Full Portfolio Metrics", expanded=False):
     show_cols = ["Policy_ID", "address", "city", "TIV", "Annual_Premium", "gross_expected_loss", "scaled_QA_wildfire_score"]
