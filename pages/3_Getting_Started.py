@@ -234,68 +234,6 @@ if "gross_expected_loss" in df.columns:
         "scaled_QA_wildfire_score": "{:.1f}"
     }), use_container_width=True)
 
-# --- 8. VALUE OF SCREENING SIMULATION ---
-st.markdown("---")
-st.subheader("📊 Deep Dive: The Value of Data Screening")
-
-if "gross_expected_loss" in df.columns:
-    res_faura = {
-        "Total Risk Targeted": top_n["gross_expected_loss"].sum(),
-        "Selection": top_n
-    }
-
-    # Random Strategy
-    np.random.seed(42)
-    df_random = df.sample(frac=1).reset_index(drop=True)
-    random_n = df_random.head(pilot_size)
-
-    res_rand = {
-        "Total Risk Targeted": random_n["gross_expected_loss"].sum(),
-        "Selection": random_n
-    }
-
-    # Metrics
-    c1, c2, c3, c4 = st.columns(4)
-    risk_diff = res_faura["Total Risk Targeted"] - res_rand["Total Risk Targeted"]
-    risk_lift_pct = (risk_diff / res_rand["Total Risk Targeted"]) * 100 if res_rand["Total Risk Targeted"] > 0 else 0
-
-    c1.metric("Gross Risk Targeted (Faura)", f"${res_faura['Total Risk Targeted']:,.0f}", delta=f"+{risk_lift_pct:.0f}% vs Random")
-    c2.metric("Gross Risk Targeted (Random)", f"${res_rand['Total Risk Targeted']:,.0f}", delta="Baseline", delta_color="off")
-    c3.metric("Risk Intelligence Value", f"${risk_diff:,.0f}", help="The extra risk exposure captured purely by using Faura's sorting algorithm.")
-    c4.metric("Avg Premium (Target Group)", f"${res_faura['Selection']['Annual_Premium'].mean():,.0f}")
-
-    # Lift Curve Logic
-    df_lift = df.copy()
-    df_lift["Rank_Risk"] = df_lift["gross_expected_loss"] 
-    df_lift["Rank_Random"] = np.random.rand(len(df_lift)) 
-
-    def get_lift_curve(rank_col, name):
-        sorted_df = df_lift.sort_values(rank_col, ascending=False).reset_index(drop=True)
-        sorted_df["Cum_Risk"] = sorted_df["gross_expected_loss"].cumsum()
-        sorted_df["% Homes Targeted"] = (sorted_df.index + 1) / len(sorted_df)
-        sorted_df["Strategy"] = name
-        return sorted_df[["% Homes Targeted", "Cum_Risk", "Strategy"]]
-
-    lift_data = pd.concat([
-        get_lift_curve("Rank_Risk", "Faura Prioritized"),
-        get_lift_curve("Rank_Random", "Random Outreach")
-    ])
-
-    fig_lift = px.line(lift_data, x="% Homes Targeted", y="Cum_Risk", color="Strategy",
-                  color_discrete_map={"Faura Prioritized": "#00CC96", "Random Outreach": "#EF553B"})
-
-    budget_pct = pilot_size / len(df)
-    fig_lift.add_vline(x=budget_pct, line_dash="dash", line_color="grey", annotation_text="Pilot Budget")
-
-    fig_lift.update_layout(
-        height=450, 
-        xaxis_tickformat=".0%", 
-        yaxis_tickprefix="$", 
-        yaxis_title="Cumulative Gross Expected Loss ($)",
-        title="Cumulative Risk Capture: Faura vs Random"
-    )
-    st.plotly_chart(fig_lift, use_container_width=True)
-
 # --- 9. FOOTER ---
 st.markdown("---")
 st.subheader("🧮 The Logic Behind the Score")
