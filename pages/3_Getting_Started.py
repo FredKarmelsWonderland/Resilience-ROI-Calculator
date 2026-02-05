@@ -210,29 +210,61 @@ with st.expander("📋 View Full Portfolio Metrics", expanded=False):
         "scaled_QA_wildfire_score": "{:.1f}"
     }), use_container_width=True)
 
-# --- 7. THE TARGET PILOT ---
+# --- 7. THE TARGET PILOT (UPDATED) ---
 st.markdown("---")
 st.subheader(f"🎯 The Target Pilot: Top {pilot_size} Riskiest Homes")
 
-# Sort by Risk (Gross Expected Loss)
+# Sort and Slice
 if "gross_expected_loss" in df.columns:
     df_sorted = df.sort_values("gross_expected_loss", ascending=False).reset_index(drop=True)
     top_n = df_sorted.head(pilot_size)
 
-    # Calculate Stats
+    # Calculate Stats for Widgets
     pct_homes = (pilot_size / total_homes) * 100
     top_n_loss = top_n["gross_expected_loss"].sum()
     pct_loss = (top_n_loss / total_gel) * 100 if total_gel > 0 else 0
-
-    st.info(f"These **{pilot_size}** homes represent **{pct_homes:.1f}%** of the portfolio but account for **{pct_loss:.1f}%** of expected losses.")
     
-    valid_cols = [c for c in show_cols if c in top_n.columns]
-    st.dataframe(top_n[valid_cols].style.format({
-        "TIV": "${:,.0f}", 
-        "Annual_Premium": "${:,.0f}", 
-        "gross_expected_loss": "${:,.0f}",
-        "scaled_QA_wildfire_score": "{:.1f}"
-    }), use_container_width=True)
+    # --- PILOT WIDGETS ---
+    p1, p2, p3, p4, p5, p6 = st.columns(6)
+    
+    p_tiv = top_n["TIV"].sum()
+    p_prem = top_n["Annual_Premium"].sum()
+    p_gel = top_n["gross_expected_loss"].sum()
+    p_net = top_n["carrier_net"].sum()
+    p_score = top_n["scaled_QA_wildfire_score"].mean()
+
+    p1.metric("Homes to Target", f"{pilot_size}", f"{pct_homes:.1f}% of Port")
+    p2.metric("Target TIV", f"${p_tiv/1e6:,.1f}M")
+    p3.metric("Target Premium", f"${p_prem/1e6:,.2f}M")
+    p4.metric("Target GEL", f"${p_gel/1e6:,.2f}M", f"{pct_loss:.1f}% of Loss", delta_color="inverse")
+    
+    # Custom Net Color for Pilot
+    if p_net > 0: p_color = "#00CC96" 
+    elif p_net < 0: p_color = "#EF553B" 
+    else: p_color = "inherit"
+
+    p5.markdown(f"""
+    <div data-testid="stMetricValue">
+        <label style="font-size: 14px; color: rgba(49, 51, 63, 0.6);">Target Net</label>
+        <div style="font-size: 26px; font-weight: 600; color: {p_color};">
+            ${p_net/1e6:,.2f}M
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    p6.metric("Avg Score", f"{p_score:.1f}/100")
+
+    st.markdown("---")
+    
+    # --- COLLAPSIBLE PILOT TABLE ---
+    with st.expander(f"📋 View Target Pilot List ({pilot_size} Homes)", expanded=True):
+        valid_cols = [c for c in show_cols if c in top_n.columns]
+        st.dataframe(top_n[valid_cols].style.format({
+            "TIV": "${:,.0f}", 
+            "Annual_Premium": "${:,.0f}", 
+            "gross_expected_loss": "${:,.0f}",
+            "scaled_QA_wildfire_score": "{:.1f}"
+        }), use_container_width=True)
 
 # --- 9. FOOTER ---
 st.markdown("---")
