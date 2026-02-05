@@ -102,7 +102,7 @@ with st.expander("📂 View Client Screening List (Raw Intake)", expanded=False)
 st.markdown("---")
 st.markdown(f"""
 ### 📊 Step 2. Portfolio Analytics
-**We analyze these for underwriting profit risk at ${screening_rate:,}/address using our Faura Quick Assessment.**
+**We analyze these for underwriting profit risk at ${screening_rate:,}/address using our Faura Quick Assessment**
 """)
 
 # A. Metrics Widgets
@@ -215,7 +215,10 @@ with st.expander("📋 View Full Portfolio Metrics", expanded=False):
 
 # --- 7. THE TARGET PILOT (UPDATED) ---
 st.markdown("---")
-st.subheader(f"🎯 Step 3. Targeted Outreach: Top {pilot_size} Riskiest Homes")
+st.markdown(f"""
+### 🎯 Step 3. Targeted Outreach: Top {pilot_size} Riskiest Homes"
+**We pick the top {pilot_size} homes with the highest expected loss for targeted outreach with our Home Resilience Program Report**
+""")
 
 # Sort and Slice
 if "gross_expected_loss" in df.columns:
