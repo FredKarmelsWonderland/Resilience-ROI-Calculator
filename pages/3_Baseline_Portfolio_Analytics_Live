@@ -69,8 +69,7 @@ st.sidebar.markdown("---")
 st.sidebar.info("Analyzing the 'Screened' portfolio to identify profitability drags.")
 
 # --- MAIN DASHBOARD ---
-st.title("📊 Portfolio Screening & Pilot Selection")
-st.markdown("### Identifying the 'Bleeding Edge' of the Portfolio")
+st.title("📊 Getting Started:  Portfolio Analytics and Screening")
 
 # --- 3. GLOBAL METRICS ---
 total_homes = len(df)
