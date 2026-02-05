@@ -43,7 +43,7 @@ def load_data():
         conn = st.connection("gsheets", type=GSheetsConnection)
         # REPLACE WITH YOUR GOOGLE SHEET URL
         df = conn.read(
-            spreadsheet="https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID_HERE/edit",
+            spreadsheet="https://docs.google.com/spreadsheets/d/1Ank5NAk3qCuYKVK7F580aRU5I2DPDJ6lxLSa66PF33o/edit?gid=0#gid=0",
             worksheet="client screening list" 
         )
         
