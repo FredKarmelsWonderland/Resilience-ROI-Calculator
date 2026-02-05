@@ -83,6 +83,16 @@ if mitigation_cols:
 else:
     mitigated_count = 0
 
+# Calculations for Export
+open_yield = safe_calc(opened, total_sent)
+unsub_rate = safe_calc(unsubscribed, total_sent)
+lite_yield = safe_calc(lite_completed, total_sent)
+lite_conversion = safe_calc(lite_completed, opened)
+photo_yield = safe_calc(photos_submitted, total_sent)
+photo_conversion = safe_calc(photos_submitted, lite_completed)
+fix_yield = safe_calc(mitigated_count, total_sent)
+fix_conversion = safe_calc(mitigated_count, photos_submitted)
+
 # --- 6. TOP DASHBOARD ---
 st.title("📢 Campaign Operations Center")
 st.markdown("### Engagement & Conversion Tracking")
@@ -90,23 +100,10 @@ st.markdown("### Engagement & Conversion Tracking")
 c1, c2, c3, c4, c5, c6 = st.columns(6)
 
 c1.metric("Emails Sent", total_sent, help="Total Active Pilot Group")
-
-open_yield = safe_calc(opened, total_sent)
 c2.metric("Opened Email", opened, f"{open_yield:.0f}% of Total", help=f"{opened} opens out of {total_sent}")
-
-unsub_rate = safe_calc(unsubscribed, total_sent)
 c3.metric("Unsubscribes", unsubscribed, f"{unsub_rate:.1f}% of Total", delta_color="inverse", help="Opt-outs")
-
-lite_yield = safe_calc(lite_completed, total_sent)
-lite_conversion = safe_calc(lite_completed, opened)
 c4.metric("Lite Forms", lite_completed, f"{lite_yield:.0f}% of Total", help=f"Step Conversion: {lite_conversion:.1f}% of Openers")
-
-photo_yield = safe_calc(photos_submitted, total_sent)
-photo_conversion = safe_calc(photos_submitted, lite_completed)
 c5.metric("Photos Submitted", photos_submitted, f"{photo_yield:.0f}% of Total", help=f"Step Conversion: {photo_conversion:.1f}% of Lite Forms")
-
-fix_yield = safe_calc(mitigated_count, total_sent)
-fix_conversion = safe_calc(mitigated_count, photos_submitted)
 c6.metric("Verified Fixes", mitigated_count, f"{fix_yield:.0f}% of Total", help=f"Step Conversion: {fix_conversion:.1f}% of Submissions")
 
 st.markdown("---")
@@ -183,25 +180,47 @@ with t2:
                 with cols[i % 3]:
                     st.plotly_chart(fig, use_container_width=True)
 
-# --- 9. DATA EXPORT SECTION (NEW) ---
+# --- 9. DATA EXPORT SECTION (UPDATED) ---
 st.markdown("---")
 st.subheader("📂 Data Export & Inspection")
 
-c_down, c_info = st.columns([1, 4])
+# Create KPI Summary Dataframe
+summary_data = {
+    "Campaign Stage": ["Emails Sent", "Opened Email", "Unsubscribed", "Lite Forms", "Photos Submitted", "Verified Fixes"],
+    "Count": [total_sent, opened, unsubscribed, lite_completed, photos_submitted, mitigated_count],
+    "Yield (% of Total)": ["100%", f"{open_yield:.1f}%", f"{unsub_rate:.1f}%", f"{lite_yield:.1f}%", f"{photo_yield:.1f}%", f"{fix_yield:.1f}%"],
+    "Step Conversion": ["N/A", "N/A", "N/A", f"{lite_conversion:.1f}% (of Opens)", f"{photo_conversion:.1f}% (of Forms)", f"{fix_conversion:.1f}% (of Photos)"]
+}
+df_summary = pd.DataFrame(summary_data)
 
-with c_down:
-    # CSV Conversion
-    csv = df.to_csv(index=False).encode('utf-8')
+c_actions, c_table = st.columns([1, 4])
+
+with c_actions:
+    st.markdown("#### Export Options")
+    
+    # 1. RAW DATA DOWNLOAD
+    csv_raw = df.to_csv(index=False).encode('utf-8')
     st.download_button(
-        label="📥 Download Campaign CSV",
-        data=csv,
-        file_name="Faura_Campaign_Data_Export.csv",
+        label="📥 Download Raw Data",
+        data=csv_raw,
+        file_name="Faura_Campaign_Raw_Data.csv",
         mime="text/csv",
-        type="primary" # Highlights the button
+        type="primary"
     )
+    
+    # 2. KPI REPORT DOWNLOAD
+    csv_kpi = df_summary.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="📊 Download KPI Report",
+        data=csv_kpi,
+        file_name="Faura_Campaign_KPI_Summary.csv",
+        mime="text/csv"
+    )
+    
+    st.markdown("---")
+    st.caption("ℹ️ To save the visual dashboard as a PDF, use your browser's **Print -> Save as PDF** feature (Cmd+P).")
 
-with c_info:
-    st.info(f"Viewing **{len(df)}** active campaign rows. Download includes all response columns.")
-
-# Interactive Table
-st.dataframe(df, use_container_width=True, hide_index=True)
+with c_table:
+    # Interactive Table
+    st.markdown("#### Live Data Inspector")
+    st.dataframe(df, use_container_width=True, hide_index=True, height=400)
