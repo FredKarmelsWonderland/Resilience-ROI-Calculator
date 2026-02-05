@@ -97,7 +97,7 @@ with st.expander("📂 View Client Screening List (Raw Intake)", expanded=False)
 
 # --- 6. PORTFOLIO ANALYTICS (SCORED) ---
 st.markdown("---")
-st.subheader("📊 Portfolio Analytics")
+st.subheader("📊 Step 2. Portfolio Analytics")
 
 # A. Metrics Widgets
 c1, c2, c3, c4, c5, c6 = st.columns(6)
@@ -109,12 +109,12 @@ total_gel = df["gross_expected_loss"].sum()
 net_portfolio = df["carrier_net"].sum()
 avg_resilience = df["scaled_QA_wildfire_score"].mean()
 
-c1.metric("Total TIV", f"${total_tiv/1e6:,.1f}M")
 c2.metric("Total Homes", f"{total_homes:,}")
-c3.metric("Total Premium", f"${total_premium:,.0f}")
-c4.metric("Gross Exp. Loss", f"${total_gel:,.0f}")
-c5.metric("Current Net", f"${net_portfolio:,.0f}", help="Net Profit (Premium - Gross Loss)")
-c6.metric("Avg Resilience", f"{avg_resilience:.1f}/100")
+c1.metric("Total TIV", f"${total_tiv/1e6:,.1f}M")
+c3.metric("Total Premium", f"${total_premium/1e6:,.1f}M")
+c4.metric("Gross Exp. Loss", f"${total_gel/1e6:,.1f}M")
+c5.metric("Current Net", f"${net_portfolio/1e6:,.1f}M", help="Net Profit (Premium - Gross Loss)")
+c6.metric("Avg Resilience Score", f"{avg_resilience:.1f}/100")
 
 # B. Full Portfolio Table
 with st.expander("📋 View Full Portfolio Metrics", expanded=False):
