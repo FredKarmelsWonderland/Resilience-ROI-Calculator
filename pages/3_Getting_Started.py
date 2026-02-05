@@ -212,7 +212,7 @@ with st.expander("📋 View Full Portfolio Metrics", expanded=False):
 
 # --- 7. THE TARGET PILOT (UPDATED) ---
 st.markdown("---")
-st.subheader(f"🎯 The Target Pilot: Top {pilot_size} Riskiest Homes")
+st.subheader(f"🎯 Step 3.  The Target Pilot: Top {pilot_size} Riskiest Homes")
 
 # Sort and Slice
 if "gross_expected_loss" in df.columns:
