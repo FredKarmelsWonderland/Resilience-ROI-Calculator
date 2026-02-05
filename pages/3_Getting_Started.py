@@ -212,7 +212,7 @@ with st.expander("📋 View Full Portfolio Metrics", expanded=False):
 
 # --- 7. THE TARGET PILOT (UPDATED) ---
 st.markdown("---")
-st.subheader(f"🎯 Step 3. The Targeted Pilot: Top {pilot_size} Riskiest Homes")
+st.subheader(f"🎯 Step 3. Targeted Outreach: Top {pilot_size} Riskiest Homes")
 
 # Sort and Slice
 if "gross_expected_loss" in df.columns:
@@ -233,10 +233,10 @@ if "gross_expected_loss" in df.columns:
     p_net = top_n["carrier_net"].sum()
     p_score = top_n["scaled_QA_wildfire_score"].mean()
 
-    p1.metric("Homes to Target", f"{pilot_size}", f"{pct_homes:.1f}% of Port")
-    p2.metric("Campaign TIV", f"${p_tiv/1e6:,.0f}M")
-    p3.metric("Campaign Premium", f"${p_prem/1e6:,.2f}M")
-    p4.metric("Campaign Gross Exp. Loss", f"${p_gel/1e6:,.2f}M", f"{pct_loss:.1f}% of Loss", delta_color="inverse")
+    p1.metric("Homes to Target", f"{pilot_size}")
+    p2.metric("Outreach TIV", f"${p_tiv/1e6:,.0f}M")
+    p3.metric("Outreach Premium", f"${p_prem/1e6:,.2f}M")
+    p4.metric("Outreach Gross Exp. Loss", f"${p_gel/1e6:,.2f}M", f"{pct_loss:.1f}% of Loss", delta_color="inverse")
     
     # Custom Net Color for Pilot
     if p_net > 0: p_color = "#00CC96" 
