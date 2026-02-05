@@ -100,7 +100,6 @@ with st.expander("📂 View Client Screening List (Raw Intake)", expanded=False)
 
 # --- 6. PORTFOLIO ANALYTICS (SCORED) ---
 st.markdown("---")
-st.subheader("📊 Step 2. Portfolio Analytics")
 st.markdown(f"""
 ### 📊 Step 2. Portfolio Analytics
 **We analyze these for underwriting profit risk at ${screening_rate:,}/address using our Faura Quick Assessment.**
