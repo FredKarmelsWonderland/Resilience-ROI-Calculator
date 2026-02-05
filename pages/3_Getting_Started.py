@@ -29,9 +29,7 @@ if not check_password():
 # --- 2. SIDEBAR CONFIGURATION ---
 with st.sidebar:
     st.header("⚙️ Pilot Settings")
-    # Only the Pilot Size toggle remains
     pilot_size = st.number_input("Target Pilot Size (Homes)", min_value=50, value=100, step=10)
-    
     st.markdown("---")
     st.info("Adjusting the pilot size highlights the top-risk homes in the charts below.")
 
@@ -56,14 +54,20 @@ def load_data():
         # --- CLEANUP SCORED DATA ---
         df_scored = df_scored.dropna(subset=["Policy_ID"])
         
-        # Ensure numeric types
-        cols_to_clean = ["TIV", "Annual_Premium", "gross_expected_loss", "scaled_QA_wildfire_score", "carrier_net"]
+        # Ensure numeric types for all columns used in analytics
+        # Note: We exclude "Wildfire_Risk_Grade_PL" because it is categorical (A, B, C...)
+        cols_to_clean = [
+            "TIV", "Annual_Premium", "gross_expected_loss", "scaled_QA_wildfire_score", 
+            "carrier_net", "P_Ignition", "Primary_Year_Built_PL", "Wildfire_Annual_Probability_PL"
+        ]
+        
         for col in cols_to_clean:
             if col in df_scored.columns:
+                # Remove currency symbols ($ ,) and convert to numeric
                 df_scored[col] = pd.to_numeric(
                     df_scored[col].astype(str).str.replace(r'[$,]', '', regex=True), 
                     errors='coerce'
-                ).fillna(0)
+                )
         
         return df_raw, df_scored
     except Exception as e:
@@ -80,14 +84,13 @@ if df.empty:
 # --- 4. PAGE HEADER & SCREENING COST ---
 st.title("🚀 Getting Started with a Campaign")
 
-# Dynamic Calculation based on the loaded Raw Data
 total_homes_intake = len(df_raw) 
-screening_rate = 2 # Updated to $2/address
+screening_rate = 2 
 total_screening_cost = total_homes_intake * screening_rate
 
 st.markdown(f"""
 ### Step 1: Portfolio Ingestion
-**Carrier provides a list of {total_homes_intake:,} homes that we analyze at ${screening_rate:,}/address.**
+**Carrier provides a list of {total_homes_intake:,} homes that we screen at ${screening_rate}/address (Total: ${total_screening_cost:,.0f}), ranking them by underwriting risk.**
 """)
 
 # --- 5. CLIENT SCREENING LIST (RAW) ---
@@ -97,7 +100,7 @@ with st.expander("📂 View Client Screening List (Raw Intake)", expanded=False)
 
 # --- 6. PORTFOLIO ANALYTICS (SCORED) ---
 st.markdown("---")
-st.subheader("📊 Step 2. Portfolio Analytics")
+st.subheader("📊 Portfolio Analytics")
 
 # A. Metrics Widgets
 c1, c2, c3, c4, c5, c6 = st.columns(6)
@@ -115,14 +118,13 @@ c2.metric("Total TIV", f"${total_tiv/1e6:,.1f}M")
 c3.metric("Total Premium", f"${total_premium/1e6:,.2f}M")
 c4.metric("Gross Exp. Loss", f"${total_gel/1e6:,.2f}M")
 
-# CUSTOM METRIC: COLORED NUMBER
-# We use HTML to force the color of the main value
+# CUSTOM COLOR METRIC: EXPECTED NET
 if net_portfolio > 0:
-    net_color = "#00CC96" # Faura Green
+    net_color = "#00CC96" # Green
 elif net_portfolio < 0:
-    net_color = "#EF553B" # Faura Red
+    net_color = "#EF553B" # Red
 else:
-    net_color = "inherit" # Standard Black/White
+    net_color = "inherit"
 
 c5.markdown(f"""
     <div data-testid="stMetricValue">
@@ -137,7 +139,77 @@ c5.markdown(f"""
 """, unsafe_allow_html=True)
 
 c6.metric("Avg Resilience Score", f"{avg_resilience:.0f}/100")
-# B. Full Portfolio Table
+
+# B. Visual Analytics (Updated Tabs)
+st.markdown("---")
+t1, t2 = st.tabs(["📉 Profitability & Risk Profile", "🏠 Property Attributes"])
+
+with t1:
+    st.subheader("Financial Impact Analysis")
+    c1, c2 = st.columns(2)
+    with c1:
+        # 1. Net Profit Histogram
+        if "carrier_net" in df.columns:
+            fig_net = px.histogram(df, x="carrier_net", nbins=50, title="Net Profit/Loss Distribution", color_discrete_sequence=["#636EFA"])
+            fig_net.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="Breakeven")
+            fig_net.update_layout(xaxis_title="Net Profit ($)", yaxis_title="Count")
+            st.plotly_chart(fig_net, use_container_width=True)
+
+    with c2:
+        # 2. Gross Expected Loss Histogram
+        if "gross_expected_loss" in df.columns:
+            fig_gross = px.histogram(df, x="gross_expected_loss", nbins=50, title="Gross Expected Loss Distribution", color_discrete_sequence=["#EF553B"])
+            fig_gross.update_layout(xaxis_title="Gross Loss ($)", yaxis_title="Count")
+            st.plotly_chart(fig_gross, use_container_width=True)
+
+    st.markdown("---")
+    st.subheader("Risk Metrics Distribution")
+
+    c3, c4 = st.columns(2)
+    with c3:
+        # 3. Scaled Resilience Score
+        if "scaled_QA_wildfire_score" in df.columns:
+            fig_score = px.histogram(df, x="scaled_QA_wildfire_score", nbins=20, title="Scaled Resilience Score (0-100)", color_discrete_sequence=["#00CC96"])
+            fig_score.add_vline(x=75, line_dash="dot", line_color="black", annotation_text="Target")
+            fig_score.update_layout(xaxis_title="Score", yaxis_title="Count")
+            st.plotly_chart(fig_score, use_container_width=True)
+
+    with c4:
+        # 4. Wildfire Grade (A-F)
+        if "Wildfire_Risk_Grade_PL" in df.columns:
+            category_order = {"Wildfire_Risk_Grade_PL": ["A", "B", "C", "D", "F"]}
+            fig_grade = px.histogram(
+                df, 
+                x="Wildfire_Risk_Grade_PL", 
+                title="Wildfire Risk Grade", 
+                color="Wildfire_Risk_Grade_PL",
+                category_orders=category_order,
+                color_discrete_map={
+                    "A": "green", "B": "lightgreen", "C": "yellow", "D": "orange", "F": "red"
+                }
+            )
+            fig_grade.update_layout(xaxis_title="Grade", yaxis_title="Count")
+            st.plotly_chart(fig_grade, use_container_width=True)
+
+with t2:
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        if "P_Ignition" in df.columns:
+            st.subheader("P(Ignition)")
+            fig_ign = px.histogram(df, x="P_Ignition", title="Ignition Probability", nbins=20, color_discrete_sequence=["orange"])
+            st.plotly_chart(fig_ign, use_container_width=True)
+    with c2:
+        if "Primary_Year_Built_PL" in df.columns:
+            st.subheader("Year Built")
+            fig_year = px.histogram(df, x="Primary_Year_Built_PL", title="Construction Year", nbins=30, color_discrete_sequence=["teal"])
+            st.plotly_chart(fig_year, use_container_width=True)
+    with c3:
+        if "Wildfire_Annual_Probability_PL" in df.columns:
+            st.subheader("Wildfire Probability")
+            fig_prob = px.histogram(df, x="Wildfire_Annual_Probability_PL", title="Hazard Probability (PL)", nbins=30, color_discrete_sequence=["firebrick"])
+            st.plotly_chart(fig_prob, use_container_width=True)
+
+# C. Full Portfolio Table
 with st.expander("📋 View Full Portfolio Metrics", expanded=False):
     show_cols = ["Policy_ID", "address", "city", "TIV", "Annual_Premium", "gross_expected_loss", "scaled_QA_wildfire_score"]
     valid_cols = [c for c in show_cols if c in df.columns]
@@ -148,23 +220,6 @@ with st.expander("📋 View Full Portfolio Metrics", expanded=False):
         "gross_expected_loss": "${:,.0f}",
         "scaled_QA_wildfire_score": "{:.1f}"
     }), use_container_width=True)
-
-# C. Histograms
-col_hist1, col_hist2 = st.columns(2)
-
-with col_hist1:
-    if "scaled_QA_wildfire_score" in df.columns:
-        fig_score = px.histogram(df, x="scaled_QA_wildfire_score", nbins=20, title="Distribution of Resilience Scores",
-                                 color_discrete_sequence=["#636EFA"])
-        fig_score.update_layout(bargap=0.1, height=300, xaxis_title="Resilience Score")
-        st.plotly_chart(fig_score, use_container_width=True)
-
-with col_hist2:
-    if "gross_expected_loss" in df.columns:
-        fig_loss = px.histogram(df, x="gross_expected_loss", nbins=20, title="Distribution of Expected Loss",
-                                color_discrete_sequence=["#EF553B"])
-        fig_loss.update_layout(bargap=0.1, height=300, xaxis_tickprefix="$", xaxis_title="Gross Expected Loss")
-        st.plotly_chart(fig_loss, use_container_width=True)
 
 # --- 7. THE TARGET PILOT ---
 st.markdown("---")
