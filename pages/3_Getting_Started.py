@@ -267,13 +267,13 @@ if "gross_expected_loss" in df.columns:
         }), use_container_width=True)
 
 # --- 9. FOOTER ---
-st.markdown("---")
-st.subheader("🧮 The Logic Behind the Score")
-st.markdown(r"""
-**The "Vulnerability" Gap:**
-$$
-\text{Risk} = \text{TIV} \times \underbrace{P(\text{Fire})}_\text{Hazard} \times \underbrace{P(\text{Ignition})}_\text{Vulnerability}
-$$
-* **Hazard (P_Fire):** Probability of Wildfire.
-* **Vulnerability (P_Ignition):** Probability of Ignition if Fire occurs. [Faura uses its Proprietary Quick Assessment score for this].
-""")
+#st.markdown("---")
+#st.subheader("🧮 The Logic Behind the Score")
+#st.markdown(r"""
+#**The "Vulnerability" Gap:**
+#$$
+#\text{Risk} = \text{TIV} \times \underbrace{P(\text{Fire})}_\text{Hazard} \times \underbrace{P(\text{Ignition})}_\text{Vulnerability}
+#$$
+#* **Hazard (P_Fire):** Probability of Wildfire.
+#* **Vulnerability (P_Ignition):** Probability of Ignition if Fire occurs. [Faura uses its Proprietary Quick Assessment score for this].
+#""")
