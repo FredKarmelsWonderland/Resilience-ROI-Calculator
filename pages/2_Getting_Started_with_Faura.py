@@ -90,7 +90,7 @@ total_screening_cost = total_homes_intake * screening_rate
 
 st.markdown(f"""
 ### Step 1: Portfolio Ingestion
-**Carrier provides a list of {total_homes_intake:,} homes that we analyze at ${screening_rate:,}/address.**
+**Carrier provides a list of {total_homes_intake:,} homes that we analyze at ${screening_rate:,}/address using our Faura Quick Assessment.**
 """)
 
 # --- 5. CLIENT SCREENING LIST (RAW) ---
