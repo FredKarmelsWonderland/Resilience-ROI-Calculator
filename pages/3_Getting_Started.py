@@ -86,12 +86,11 @@ st.title("🚀 Getting Started with a Campaign")
 screening_cost = num_homes_input * 3
 st.markdown(f"""
 ### Step 1: Portfolio Ingestion
-**Carrier provides a list of {num_homes_input:,} homes that we screen at $3/address (Total: ${screening_cost:,.0f}), ranking them by underwriting risk.**
+**Carrier provides a list of {num_homes_input:,} homes that we screen at $2/address (Total: ${screening_cost:,.0f})**
 """)
 
 # --- 5. CLIENT SCREENING LIST (RAW) ---
 with st.expander("📂 View Client Screening List (Raw Intake)", expanded=False):
-    st.markdown("This is the raw intake file before prioritization.")
     st.dataframe(df_raw, use_container_width=True)
 
 # --- 6. PORTFOLIO ANALYTICS (SCORED) ---
