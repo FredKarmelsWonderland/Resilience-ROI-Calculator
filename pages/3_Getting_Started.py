@@ -87,7 +87,7 @@ total_screening_cost = total_homes_intake * screening_rate
 
 st.markdown(f"""
 ### Step 1: Portfolio Ingestion
-**Carrier provides a list of {total_homes_intake:,} homes that we screen at ${screening_rate}/address (Total: ${total_screening_cost:,.0f}), ranking them by underwriting risk.**
+**Carrier provides a list of {total_homes_intake:,} homes that we analyze at {screening_rate:,}/address.**
 """)
 
 # --- 5. CLIENT SCREENING LIST (RAW) ---
