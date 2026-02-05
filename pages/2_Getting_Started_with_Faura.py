@@ -95,7 +95,6 @@ st.markdown(f"""
 
 # --- 5. CLIENT SCREENING LIST (RAW) ---
 with st.expander("📂 View Client Screening List (Raw Intake)", expanded=False):
-    st.markdown("This is the raw intake file before prioritization.")
     st.dataframe(df_raw, use_container_width=True)
 
 # --- 6. PORTFOLIO ANALYTICS (SCORED) ---
@@ -217,7 +216,7 @@ with st.expander("📋 View Full Portfolio Metrics", expanded=False):
 st.markdown("---")
 st.markdown(f"""
 ### 🎯 Step 3. Targeted Outreach: Top {pilot_size} Riskiest Homes"
-**We pick the top {pilot_size} homes with the highest expected loss for targeted outreach with our Home Resilience Program Report**
+**We pick the top {pilot_size} homes with the highest expected loss for targeted outreach**
 """)
 
 # Sort and Slice
