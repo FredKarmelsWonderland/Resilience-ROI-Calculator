@@ -90,7 +90,7 @@ total_screening_cost = total_homes_intake * screening_rate
 
 st.markdown(f"""
 ### Step 1: Portfolio Ingestion
-**Carrier provides a list of {total_homes_intake:,} homes that we analyze at ${screening_rate:,}/address using our Faura Quick Assessment.**
+**Carrier provides a list of {total_homes_intake:,} homes**
 """)
 
 # --- 5. CLIENT SCREENING LIST (RAW) ---
@@ -101,6 +101,10 @@ with st.expander("📂 View Client Screening List (Raw Intake)", expanded=False)
 # --- 6. PORTFOLIO ANALYTICS (SCORED) ---
 st.markdown("---")
 st.subheader("📊 Step 2. Portfolio Analytics")
+st.markdown(f"""
+### 📊 Step 2. Portfolio Analytics
+**We analyze these for underwriting profit risk at ${screening_rate:,}/address using our Faura Quick Assessment.**
+""")
 
 # A. Metrics Widgets
 c1, c2, c3, c4, c5, c6 = st.columns(6)
