@@ -109,20 +109,32 @@ total_gel = df["gross_expected_loss"].sum()
 net_portfolio = df["carrier_net"].sum()
 avg_resilience = df["scaled_QA_wildfire_score"].mean()
 
+# Standard Metrics
 c1.metric("Total Homes", f"{total_homes:,}")
 c2.metric("Total TIV", f"${total_tiv/1e6:,.1f}M")
 c3.metric("Total Premium", f"${total_premium/1e6:,.2f}M")
 c4.metric("Gross Exp. Loss", f"${total_gel/1e6:,.2f}M")
 
-# LOGIC FOR COLORING (Green if >0, Red if <0, Off if 0)
-net_color = "normal" if net_portfolio != 0 else "off"
-c5.metric(
-    "Expected Net", 
-    f"${net_portfolio/1e6:,.2f}M", 
-    delta=f"${net_portfolio/1e6:,.2f}M", 
-    delta_color=net_color,
-    help="Net Profit (Premium - Gross Loss)"
-)
+# CUSTOM METRIC: COLORED NUMBER
+# We use HTML to force the color of the main value
+if net_portfolio > 0:
+    net_color = "#00CC96" # Faura Green
+elif net_portfolio < 0:
+    net_color = "#EF553B" # Faura Red
+else:
+    net_color = "inherit" # Standard Black/White
+
+c5.markdown(f"""
+    <div data-testid="stMetricValue">
+        <label style="font-size: 14px; color: rgba(49, 51, 63, 0.6);">Expected Net</label>
+        <div style="font-size: 32px; font-weight: 600; color: {net_color};">
+            ${net_portfolio/1e6:,.2f}M
+        </div>
+        <div style="font-size: 14px; color: rgba(49, 51, 63, 0.6);">
+            Net Profit
+        </div>
+    </div>
+""", unsafe_allow_html=True)
 
 c6.metric("Avg Resilience Score", f"{avg_resilience:.0f}/100")
 # B. Full Portfolio Table
