@@ -100,7 +100,7 @@ with st.expander("📂 View Client Screening List (Raw Intake)", expanded=False)
 
 # --- 6. PORTFOLIO ANALYTICS (SCORED) ---
 st.markdown("---")
-st.subheader("📊 Portfolio Analytics")
+st.subheader("📊 Step 2. Portfolio Analytics")
 
 # A. Metrics Widgets
 c1, c2, c3, c4, c5, c6 = st.columns(6)
@@ -114,7 +114,7 @@ avg_resilience = df["scaled_QA_wildfire_score"].mean()
 
 # Standard Metrics
 c1.metric("Total Homes", f"{total_homes:,}")
-c2.metric("Total TIV", f"${total_tiv/1e6:,.1f}M")
+c2.metric("Total TIV", f"${total_tiv/1e6:,.0f}M")
 c3.metric("Total Premium", f"${total_premium/1e6:,.2f}M")
 c4.metric("Gross Exp. Loss", f"${total_gel/1e6:,.2f}M")
 
@@ -140,42 +140,49 @@ c5.markdown(f"""
 
 c6.metric("Avg Resilience Score", f"{avg_resilience:.0f}/100")
 
-# B. Visual Analytics (Updated Tabs)
+# B. Visual Analytics (New 3-Tab Layout)
 st.markdown("---")
-t1, t2 = st.tabs(["📉 Profitability & Risk Profile", "🏠 Property Attributes"])
+t1, t2, t3 = st.tabs(["📉 Loss Profile", "🏠 Home Profile", "🔥 Risk Profile"])
 
+# TAB 1: LOSS PROFILE (Net Profit + Gross Loss)
 with t1:
-    st.subheader("Financial Impact Analysis")
     c1, c2 = st.columns(2)
     with c1:
-        # 1. Net Profit Histogram
         if "carrier_net" in df.columns:
             fig_net = px.histogram(df, x="carrier_net", nbins=50, title="Net Profit/Loss Distribution", color_discrete_sequence=["#636EFA"])
             fig_net.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="Breakeven")
             fig_net.update_layout(xaxis_title="Net Profit ($)", yaxis_title="Count")
             st.plotly_chart(fig_net, use_container_width=True)
-
     with c2:
-        # 2. Gross Expected Loss Histogram
         if "gross_expected_loss" in df.columns:
             fig_gross = px.histogram(df, x="gross_expected_loss", nbins=50, title="Gross Expected Loss Distribution", color_discrete_sequence=["#EF553B"])
             fig_gross.update_layout(xaxis_title="Gross Loss ($)", yaxis_title="Count")
             st.plotly_chart(fig_gross, use_container_width=True)
 
-    st.markdown("---")
-    st.subheader("Risk Metrics Distribution")
-
-    c3, c4 = st.columns(2)
-    with c3:
-        # 3. Scaled Resilience Score
-        if "scaled_QA_wildfire_score" in df.columns:
+# TAB 2: HOME PROFILE (Year Built + Resilience Score)
+with t2:
+    c1, c2 = st.columns(2)
+    with c1:
+        if "Primary_Year_Built_PL" in df.columns:
+            fig_year = px.histogram(df, x="Primary_Year_Built_PL", title="Construction Year", nbins=30, color_discrete_sequence=["teal"])
+            fig_year.update_layout(xaxis_title="Year Built", yaxis_title="Count")
+            st.plotly_chart(fig_year, use_container_width=True)
+    with c2:
+         if "scaled_QA_wildfire_score" in df.columns:
             fig_score = px.histogram(df, x="scaled_QA_wildfire_score", nbins=20, title="Scaled Resilience Score (0-100)", color_discrete_sequence=["#00CC96"])
             fig_score.add_vline(x=75, line_dash="dot", line_color="black", annotation_text="Target")
             fig_score.update_layout(xaxis_title="Score", yaxis_title="Count")
             st.plotly_chart(fig_score, use_container_width=True)
 
-    with c4:
-        # 4. Wildfire Grade (A-F)
+# TAB 3: RISK PROFILE (Probability + Grade)
+with t3:
+    c1, c2 = st.columns(2)
+    with c1:
+        if "Wildfire_Annual_Probability_PL" in df.columns:
+            fig_prob = px.histogram(df, x="Wildfire_Annual_Probability_PL", title="Annual Wildfire Probability", nbins=30, color_discrete_sequence=["firebrick"])
+            fig_prob.update_layout(xaxis_title="Probability (0-1)", yaxis_title="Count")
+            st.plotly_chart(fig_prob, use_container_width=True)
+    with c2:
         if "Wildfire_Risk_Grade_PL" in df.columns:
             category_order = {"Wildfire_Risk_Grade_PL": ["A", "B", "C", "D", "F"]}
             fig_grade = px.histogram(
@@ -190,24 +197,6 @@ with t1:
             )
             fig_grade.update_layout(xaxis_title="Grade", yaxis_title="Count")
             st.plotly_chart(fig_grade, use_container_width=True)
-
-with t2:
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        if "P_Ignition" in df.columns:
-            st.subheader("P(Ignition)")
-            fig_ign = px.histogram(df, x="P_Ignition", title="Ignition Probability", nbins=20, color_discrete_sequence=["orange"])
-            st.plotly_chart(fig_ign, use_container_width=True)
-    with c2:
-        if "Primary_Year_Built_PL" in df.columns:
-            st.subheader("Year Built")
-            fig_year = px.histogram(df, x="Primary_Year_Built_PL", title="Construction Year", nbins=30, color_discrete_sequence=["teal"])
-            st.plotly_chart(fig_year, use_container_width=True)
-    with c3:
-        if "Wildfire_Annual_Probability_PL" in df.columns:
-            st.subheader("Wildfire Probability")
-            fig_prob = px.histogram(df, x="Wildfire_Annual_Probability_PL", title="Hazard Probability (PL)", nbins=30, color_discrete_sequence=["firebrick"])
-            st.plotly_chart(fig_prob, use_container_width=True)
 
 # C. Full Portfolio Table
 with st.expander("📋 View Full Portfolio Metrics", expanded=False):
