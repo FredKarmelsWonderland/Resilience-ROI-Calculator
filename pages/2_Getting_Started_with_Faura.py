@@ -82,7 +82,7 @@ if df.empty:
     st.stop()
 
 # --- 4. PAGE HEADER & SCREENING COST ---
-st.title("🚀 Getting Started with a Campaign")
+st.title("Getting Started with a Campaign")
 
 total_homes_intake = len(df_raw) 
 screening_rate = 2 
