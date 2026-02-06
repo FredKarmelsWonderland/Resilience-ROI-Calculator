@@ -29,7 +29,7 @@ if not check_password():
 
 
 # --- MAIN APP CONTENT ---
-st.title("🏛️ California FAIR Plan: Discount Calculator")
+st.title("California FAIR Plan: Discount Calculator")
 st.markdown("""
 This calculator estimates the itemized premium reduction available to homeowners on the CA FAIR plan.
 It separates savings into **Surroundings (Bucket A)** and **Structure (Bucket B)** to highlight eligibility blockers.
