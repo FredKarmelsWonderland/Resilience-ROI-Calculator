@@ -94,7 +94,7 @@ fix_yield = safe_calc(mitigated_count, total_sent)
 fix_conversion = safe_calc(mitigated_count, photos_submitted)
 
 # --- 6. TOP DASHBOARD ---
-st.title("📢 Campaign Operations Center")
+st.title("Campaign Operations Center")
 st.markdown("### Engagement & Conversion Tracking")
 
 c1, c2, c3, c4, c5, c6 = st.columns(6)
