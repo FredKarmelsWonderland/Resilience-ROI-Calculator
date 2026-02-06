@@ -30,7 +30,7 @@ if not check_password():
     st.stop()
 
 # --- 3. MAIN APP CONTENT ---
-st.title("🏡 Wildfire Resilience Portfolio Map")
+st.title("Wildfire Resilience Portfolio Map")
 
 # --- 4. LOAD DATA ---
 @st.cache_data
