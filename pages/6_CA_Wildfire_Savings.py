@@ -48,7 +48,7 @@ def load_carrier_data():
 
 df_base = load_carrier_data()
 
-st.title("🏘️ California Carrier Discount Calculator")
+st.title("California Carrier Discount Calculator")
 st.markdown("""
 **Compare Savings Across Major Insurers:** Includes **Mercury** Separation Tiers, **Chubb** System Tiers, and **Auto Club** Counting logic.
 """)
