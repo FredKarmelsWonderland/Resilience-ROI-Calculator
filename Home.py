@@ -196,7 +196,7 @@ def create_pdf_report(client_name, metrics, inputs):
     return bytes(pdf.output())
 
 # --- 4. CALCULATOR INPUTS ---
-st.title("🔥 Faura Underwriting Profit Calculator")
+st.title("Faura Underwriting Profit Calculator")
 
 def currency_input(label, default_value, tooltip=None):
     user_input = st.sidebar.text_input(label, value=f"${default_value:,.0f}", help=tooltip)
